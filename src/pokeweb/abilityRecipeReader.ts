@@ -13,7 +13,7 @@ import { isVerifiedItemMoveParamFollower } from "./itemEffectsModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, writeRpm } from "./rpm";
 
-export const CURRENT_ABILITY_RUNTIME_VERSION = 20;
+export const CURRENT_ABILITY_RUNTIME_VERSION = 21;
 
 const verified = new WeakMap<ProjectState, {
     overlay: Uint8Array;
@@ -62,6 +62,9 @@ export function readVerifiedAbilityRules(c: AbilityRuntimeContext, { verifyItemP
     if (rpm.metadata.PokewebAbilityStatStageConditions !== undefined && rpm.metadata.PokewebAbilityStatStageConditions !== 1)
         throw Error("Unrecognized ability stat-stage condition runtime.");
     const statStageConditions = rpm.metadata.PokewebAbilityStatStageConditions === 1;
+    if (rpm.metadata.PokewebAbilityAlignedRules !== undefined && rpm.metadata.PokewebAbilityAlignedRules !== 1)
+        throw Error("Unrecognized ability record alignment.");
+    const alignRuleRecords = rpm.metadata.PokewebAbilityAlignedRules === 1;
     if(rpm.metadata.PokewebAbilityEnvironment!==undefined&&rpm.metadata.PokewebAbilityEnvironment!==1)throw Error("Unrecognized ability environment runtime.");
     const environment=rpm.metadata.PokewebAbilityEnvironment===1;
     if(!compactExecution&&rpm.metadata.PokewebAbilityWorkSlots!==undefined)throw Error("Invalid ability working-memory metadata.");
@@ -112,6 +115,7 @@ export function readVerifiedAbilityRules(c: AbilityRuntimeContext, { verifyItemP
         fieldConditions,
         effectConditions,
         statStageConditions,
+        alignRuleRecords,
     };
     if (!equalBytes(bytes, writeRpm(buildAbilityDll(c, rules, installedOptions), { ident: "DLXF" })) &&
         !equalBytes(bytes, writeRpm(buildAbilityDll(c, rules, { ...installedOptions, previewHook: true }), { ident: "DLXF" })))
@@ -124,6 +128,7 @@ export function readVerifiedAbilityRules(c: AbilityRuntimeContext, { verifyItemP
     return rules;
 }
 const runtimeVersionMarkers = [
+    ["PokewebAbilityAlignedRules", 1, 21],
     ["PokewebAbilityStatStageConditions", 1, 20],
     ["PokewebAbilityEffectConditions", 1, 19],
     ["PokewebAbilityFieldConditions", 1, 18],
@@ -149,7 +154,7 @@ export function inspectAbilityEffects(project: ProjectState): {
     editable: boolean;
     message: string;
     rules: Map<number, AbilityRuleSet>;
-    runtimeVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
+    runtimeVersion?: 1 | typeof runtimeVersionMarkers[number][2];
 } {
     try {
         const c = getAbilityRuntimeContext(project), rules = readVerifiedAbilityRules(c);

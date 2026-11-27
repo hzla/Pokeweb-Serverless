@@ -10,7 +10,7 @@ import { buttonAssets, disableButtonArchive, ensureCGearButtons, hydrateCGearBut
 import type { CGearQuickActionsOptions, CGearQuickActionsStatus } from "./cgearQuickActionsModel";
 import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
-import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installPmcBytes, listCodeInjectionDlls, loadBundledPmcBytes, removeStagedCodeInjectionDll, stageCodeInjectionDll, type CodeInjectionDllInstallResult } from "./pmcModel";
+import { adoptExistingPmcInstall, codeInjectionRemovalBlocker, getPmcInstallStatus, installPmcBytes, listCodeInjectionDlls, loadBundledPmcBytes, removeOwnedCodeInjectionFiles, stageCodeInjectionDll, type CodeInjectionDllInstallResult } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { isVerifiedItemExpansionModule } from "./itemExpansionModel";
@@ -66,7 +66,7 @@ export function getBw1CGearStatus(project:ProjectState):CGearQuickActionsStatus{
  }catch(e){return {...state,message:(e as Error).message};}
   if(!state.installed&&state.enabled)return {...state,message:"An enabled C-Gear archive has no matching runtime. Remove the orphan archive before installing."};
  }else if(state.installed)return {...state,message:"The C-Gear runtime's private archive is missing."};
- state.canRemove=!!state.dllPath&&canRemoveStagedCodeInjectionDll(project,state.dllPath)&&!!project.fileSystem?.additions?.[manifest.archivePath];
+
  try{
   const id=rom.filenames.idOf(profile.nativeArchive);
   if(id===undefined||fnv(new NARC(getRomFileBytes(project,rom,id)).save())!==profile.nativeGraphicsFingerprint)throw new Error("BW1 requires compatible native C-Gear graphics. Restore the default graphics before installing.");
@@ -78,6 +78,10 @@ export function getBw1CGearStatus(project:ProjectState):CGearQuickActionsStatus{
    if(buffers.some(b=>!b||offset<0||hex(b.subarray(offset,offset+s.expectedHex.length/2))!==s.expectedHex))throw new Error(`Unrecognized ${s.label} code in ${s.module==="ARM9"?"ARM9":`overlay ${s.module}`} at 0x${s.address.toString(16)}.`);
   }
  }catch(e){return {...state,message:(e as Error).message};}
+ if (state.dllPath && prior) {
+  const paths = [state.dllPath, ...(rom.filenames.idOf(manifest.archivePath) === undefined ? [manifest.archivePath] : [])];
+  state.canRemove = !codeInjectionRemovalBlocker(project, rom, paths);
+ }
  state.compatible=true;state.message=state.installed?(state.enabled?"C-Gear buttons are enabled. Native communication controls are removed.":"C-Gear buttons are disabled; saved preferences remain dormant."):"Native BW1 hooks match. Uses the default C-Gear background and replaces native communication controls.";
  return state;
 }
@@ -109,9 +113,17 @@ export function disableBw1CGear(project:ProjectState){
  stageButtonArchive(project,rom,disableButtonArchive(prior));if(project.cgearButtons)project.cgearButtons.enabled=false;
  recordGenericChange(project,"code_injection","C-Gear buttons disabled; saved preferences remain dormant.","C-Gear Buttons",{key:"code-injection:cgear-quick-actions"});
 }
-export function removeBw1CGear(project:ProjectState){
- const s=getBw1CGearStatus(project);if(!s.canRemove||!s.dllPath)throw new Error("Only a C-Gear patch staged in this project can be removed. Use Disable for an exported installation.");
- removeStagedCodeInjectionDll(project,s.dllPath);if(project.fileSystem?.additions?.[manifest.archivePath])delete project.fileSystem.additions[manifest.archivePath];
- if(project.cgearButtons){project.cgearButtons.enabled=false;project.cgearButtons.applied=undefined;}
- recordGenericChange(project,"code_injection","Staged C-Gear buttons removed.","C-Gear Buttons",{key:"code-injection:cgear-quick-actions"});
+export function removeBw1CGear(project: ProjectState): void {
+ const status = getBw1CGearStatus(project);
+ if (!status.canRemove || !status.dllPath || !project.originalRomBytes) throw new Error("The installed C-Gear modules could not be verified for removal.");
+ const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+ const embedded = rom.filenames.idOf(manifest.archivePath) !== undefined;
+ const dormant = embedded ? disableButtonArchive(privateArchive(project, rom)!) : undefined;
+ removeOwnedCodeInjectionFiles(project, [status.dllPath, ...(embedded ? [] : [manifest.archivePath])], rom);
+ if (dormant) stageButtonArchive(project, rom, dormant);
+ if (project.cgearButtons) {
+  project.cgearButtons.enabled = false;
+  if (!embedded) project.cgearButtons.applied = undefined;
+ }
+ recordGenericChange(project, "code_injection", "C-Gear buttons removed.", "C-Gear Buttons", { key: "code-injection:cgear-quick-actions" });
 }

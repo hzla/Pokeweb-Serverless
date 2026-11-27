@@ -3,7 +3,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { installCodeInjectionPatch } from "./codeInjectionInstall";
 import { getRomFileBytes } from "./fileSystemModel";
-import { listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
+import { codeInjectionRemovalBlocker, listCodeInjectionDlls, readCodeInjectionFile, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 
@@ -206,6 +206,36 @@ export function stageForgettableHmsPmc(project: ProjectState): ForgettableHmsIns
       ? `Migrated the inline ARM9 HM edit to ${module.fileName}, hooking ${where}.`
       : `${module.fileName} staged, hooking ${where}.`,
   };
+}
+
+function removableHmRuntime(project: ProjectState): string | undefined {
+  const version = project.session.baseVersion;
+  if (project.session.baseRom !== "BW2" || (version !== "B2" && version !== "W2")) return;
+  const wanted = forgettableHmsDllPath(version).toLowerCase();
+  const matches = listCodeInjectionDlls(project).filter(entry => entry.path.toLowerCase() === wanted);
+  if (matches.length !== 1) return;
+  const path = matches[0]!.path;
+  try {
+    const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+    const bytes = readCodeInjectionFile(project, rom, path);
+    const native = findBw2MoveIsHm(project.arm9, projectArm9RamAddress(project));
+    if (!bytes || native?.state !== "original") return;
+    const expected = buildForgettableHmsDll(pmcGameIdFor(version, rom?.idCode ?? project.romInfo.idCode), native.address);
+    if (bytes.length === expected.length && expected.every((byte, i) => byte === bytes[i])
+        && !codeInjectionRemovalBlocker(project, rom, [path])) return path;
+  } catch { return; }
+}
+
+export function canUninstallForgettableHmsPmc(project: ProjectState): boolean {
+  return removableHmRuntime(project) !== undefined;
+}
+
+export function uninstallForgettableHmsPmc(project: ProjectState): void {
+  const path = removableHmRuntime(project);
+  if (!path) throw new Error("The installed Forgettable HMs module or native HM check could not be verified.");
+  removeOwnedCodeInjectionFiles(project, [path]);
+  if (project.patches?.applied) delete project.patches.applied.forgettableHms;
+  recordGenericChange(project, "code_injection", "Forgettable HMs removed.", "Forgettable HMs", { key: "code-injection:forgettable-hms" });
 }
 
 function markApplied(project: ProjectState): void {

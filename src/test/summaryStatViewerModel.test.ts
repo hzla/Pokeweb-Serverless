@@ -80,14 +80,15 @@ describe.each(versions)("Summary IV/EV Viewer %s", version => {
     expect(new NARC(exported.getFileByName(profile.graphicsArchive)).files).toEqual(new NARC(graphicsFor(version)).files);
     expect(await webcrypto.subtle.digest("SHA-256", new Uint8Array(p.originalRomBytes!))).toEqual(originalHash);
     const reopened = makeProject(version, exported.data);
-    expect(getSummaryStatViewerStatus(reopened)).toMatchObject({ installed: true, canUninstall: false, options: { includeEvs: false } });
+    expect(getSummaryStatViewerStatus(reopened)).toMatchObject({ installed: true, canUninstall: true, options: { includeEvs: false } });
     await installSummaryStatViewer(reopened, { includeEvs: true });
     expect(reopened.fileSystem!.replacements[id]).toBeDefined();
     expect(reopened.fileSystem!.additions?.[result.path]).toBeUndefined();
     const updated = new NintendoDSRom(await exportModifiedRom(reopened));
     expect(updated.fileId(result.path)).toBe(id); expect(updated.files.length).toBe(exported.files.length);
     expect(getSummaryStatViewerStatus(makeProject(version, updated.data)).options.includeEvs).toBe(true);
-    expect(() => uninstallSummaryStatViewer(reopened)).toThrow(/staged/u);
+    uninstallSummaryStatViewer(reopened);
+    expect(new NintendoDSRom(await exportModifiedRom(reopened)).filenames.idOf(result.path)).toBeUndefined();
   });
   it("recognizes renamed modules and rejects duplicates or damaged configuration", async () => {
     stubAssets(); const p = makeProject(version);

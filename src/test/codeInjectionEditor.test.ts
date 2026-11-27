@@ -18,9 +18,12 @@ import * as bw2ApFix from "../pokeweb/bw2ApFixModel";
 import { readFileSync } from "node:fs";
 import manifest from "../assets/codeinjection/quickPokeBallManifest.json";
 import { NARC } from "../nds/narc";
+import { addFilePath } from "../nds/fnt";
+import { NintendoDSRom } from "../nds/rom";
+import { exportModifiedRom } from "../pokeweb/exportRom";
 import { addRomFile } from "../pokeweb/fileSystemModel";
 import { getQuickPokeBallStatus, uninstallQuickPokeBall } from "../pokeweb/quickPokeBallModel";
-import { parseRpm } from "../pokeweb/rpm";
+import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import { uiSymbolHash } from "../pokeweb/uiRuntimeCompanion";
 
 afterEach(() => vi.restoreAllMocks());
@@ -315,6 +318,38 @@ describe("Quick Poké Ball bundle", () => {
     expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: true, compatible: true, canUninstall: true });
     await uninstallQuickPokeBall(project);
     expect(project.fileSystem?.additions).toEqual({});
+  });
+
+  it("removes embedded Quick Poké Ball files as a group and protects external consumers", async () => {
+    const project = makeProject("W2");
+    const profile = manifest.games.W2;
+    const paths = [`patches/${profile.fileName}`, `patches/${profile.session.fileName}`, manifest.archivePath];
+    const rom = new NintendoDSRom(project.originalRomBytes!);
+    const files = [bundle(profile.fileName), bundle(profile.session.fileName), bundle("quickPokeBall.narc"), new Uint8Array([42])];
+    rom.files = files;
+    for (const [index, path] of [...paths, "other/untouched.bin"].entries()) rom.filenames = addFilePath(rom.filenames, path, index);
+    project.originalRomBytes = rom.save({ filenames: rom.filenames });
+
+    const consumerPath = "lib/QuickBallConsumer.dll";
+    addRomFile(project, consumerPath, writeRpm({
+      code: new Uint8Array(),
+      bssSize: 0,
+      baseAddress: 0,
+      metadata: {},
+      relocations: [],
+      symbols: [{ name: null, address: uiSymbolHash("PokewebQuickBallChoice"), type: "VALUE", size: 2, attributes: 2 }],
+    }, { ident: "DLXF" }));
+    expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: true, canUninstall: false });
+    await expect(uninstallQuickPokeBall(project)).rejects.toThrow(/could not be verified/u);
+    expect(project.fileSystem?.tombstones).toBeUndefined();
+    delete project.fileSystem!.additions![consumerPath];
+    expect(getQuickPokeBallStatus(project).canUninstall).toBe(true);
+    await uninstallQuickPokeBall(project);
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    for (const path of paths) expect(exported.filenames.idOf(path)).toBeUndefined();
+    for (const id of [0, 1, 2]) expect(exported.files[id]).toHaveLength(0);
+    expect(exported.fileId("other/untouched.bin")).toBe(3);
+    expect(exported.getFileByName("other/untouched.bin")).toEqual(files[3]);
   });
 
   it("recognizes reserialized graphics and rejects changed sprite bytes", () => {

@@ -4,7 +4,7 @@ import contract from "../../runtime/double-battle-fix/black1-contract.json";
 import { writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
-import { detectBundledDoubleBattleFixDll, getPmcInstallStatus, stageBundledDoubleBattleFixDll, stageCodeInjectionDll } from "../pokeweb/pmcModel";
+import { detectBundledDoubleBattleFixDll, getPmcInstallStatus, stageBundledDoubleBattleFixDll, stageCodeInjectionDll, uninstallDoubleBattleFix } from "../pokeweb/pmcModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 
@@ -52,6 +52,9 @@ describe("Black 1 double battle fix", () => {
     expect(detectBundledDoubleBattleFixDll(project)).toBe("patched");
     expect(project.codeInjection?.modules).toHaveLength(1);
     expect(project.fileSystem?.additions?.["patches/DoubleBattleFixB.dll"]).toEqual(dll);
+    uninstallDoubleBattleFix(project);
+    expect(detectBundledDoubleBattleFixDll(project)).toBe("unpatched");
+    expect(project.fileSystem?.additions?.["patches/DoubleBattleFixB.dll"]).toBeUndefined();
   });
 
   it.each(["region", "revision"])("rejects an unknown %s before staging", async kind => {

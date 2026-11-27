@@ -1,10 +1,11 @@
 import manifest from "../assets/codeinjection/introSkipManifest.json";
 import { loadOverlayTable } from "../nds/code";
 import { NintendoDSRom } from "../nds/rom";
+import { sha256Hex } from "../nds/sha256";
 import { recordGenericChange } from "./actionChangelog";
-import { installCodeInjectionPatch } from "./codeInjectionInstall";
+import { installCodeInjectionPatch, uninstallCodeInjectionPatch } from "./codeInjectionInstall";
 import { getRomFileBytes } from "./fileSystemModel";
-import { canRemoveStagedCodeInjectionDll, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { canRemoveStagedCodeInjectionDll, codeInjectionRemovalBlocker, listCodeInjectionDlls, readCodeInjectionFile, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 
@@ -67,10 +68,12 @@ export function getIntroSkipStatus(project: ProjectState): IntroSkipStatus {
   if (module) {
     state.installed = true;
     state.dllPath = module.path;
-    state.canUninstall = canRemoveStagedCodeInjectionDll(project, module.path);
-    const bytes = rom ? moduleBytes(project, rom, module.path) : undefined;
+    const bytes = readCodeInjectionFile(project, rom, module.path);
     const rpm = bytes ? readRpm(bytes) : undefined;
     if (rpm && !isIntroSkipModule(rpm, version)) return { ...state, message: `${module.fileName} is not a recognized Skip Intro runtime.` };
+    state.canUninstall = !!bytes && !!rpm && (canRemoveStagedCodeInjectionDll(project, module.path)
+      || sha256Hex(bytes) === manifest.games[version].sha256)
+      && !codeInjectionRemovalBlocker(project, rom, [module.path]);
     state.updateAvailable = rpm !== undefined && rpm.metadata.PMCVersion !== manifest.version;
   }
   if (!rom) return { ...state, compatible: state.installed, message: state.installed ? "Skip Intro is installed." : "Reload the ROM to check Skip Intro compatibility." };
@@ -108,16 +111,14 @@ export async function stageIntroSkip(project: ProjectState, options: IntroSkipIn
   return { ...getIntroSkipStatus(project), dllPath: result.path };
 }
 
-/** Remove a staged Skip Intro install. */
+/** Remove Skip Intro. */
 export function uninstallIntroSkip(project: ProjectState): Promise<void> {
-  return installCodeInjectionPatch(project, (staged) => {
+  return uninstallCodeInjectionPatch(project, (staged) => {
     const version = introSkipVersion(staged);
     if (!version) throw new Error(UNSUPPORTED);
-    const path = introSkipDllPath(version);
-    if (!canRemoveStagedCodeInjectionDll(staged, path)) {
-      throw new Error("Skip Intro is part of the loaded ROM and cannot be removed until NitroFS file deletion is supported.");
-    }
-    removeStagedCodeInjectionDll(staged, path);
+    const status = getIntroSkipStatus(staged);
+    if (!status.canUninstall || !status.dllPath) throw new Error("The installed Skip Intro module could not be verified for removal.");
+    removeOwnedCodeInjectionFiles(staged, [status.dllPath]);
     recordGenericChange(staged, "code_injection", "Skip Intro removed.", "Skip Intro", { key: "code-injection:intro-skip" });
   });
 }

@@ -18,7 +18,7 @@ import { addRomFile, getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { recordGenericChange } from "./actionChangelog";
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, INFINITE_CANDY_ITEM_ID, installInfiniteCandy } from "./infiniteCandyModel";
-import { adoptExistingPmcInstall, getPmcInstallStatus, installPmcBytes, listCodeInjectionDlls, loadBundledPmcBytes, stageCodeInjectionDll } from "./pmcModel";
+import { adoptExistingPmcInstall, getPmcInstallStatus, installPmcBytes, codeInjectionRemovalBlocker, listCodeInjectionDlls, readCodeInjectionFile, removeOwnedCodeInjectionFiles, loadBundledPmcBytes, stageCodeInjectionDll } from "./pmcModel";
 import { createNarcStore, type ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 type Version = "B" | "W" | "B2" | "W2";
@@ -45,6 +45,8 @@ export type PartyQuickActionsStatus = {
   installed: boolean;
   enabled: boolean;
   updateAvailable: boolean;
+  canUninstall: boolean;
+  fieldPaths?: string[];
   candyInstalled: boolean;
   candyCompatible: boolean;
   hideFlag: number | null;
@@ -85,13 +87,6 @@ function recognized(module: RpmModule, version: Version) {
   return bundles.some(bundle => matchesModule(module, version, bundle));
 }
 
-function bytesAt(project: ProjectState, rom: NintendoDSRom, path: string) {
-  const addition = Object.keys(project.fileSystem?.additions ?? {})
-    .find(name => name.toLowerCase() === path.toLowerCase());
-  if (addition) return project.fileSystem!.additions![addition];
-  const id = rom.filenames.idOf(path);
-  return id === undefined ? undefined : getRomFileBytes(project, rom, id);
-}
 function verifyBw1CompressedPalette(project: ProjectState, rom: NintendoDSRom) {
   const id = rom.filenames.idOf("a/0/0/7");
   if (id === undefined) throw new Error("The native Pokémon icon archive is missing.");
@@ -154,7 +149,7 @@ function configuration(bytes: Uint8Array, version: Version) {
 }
 
 export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsStatus {
-  const state: PartyQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false, updateAvailable: false, candyInstalled: false, candyCompatible: false, hideFlag: null, sectionHideFlags: emptySectionFlags(), message: "Party toolbar supports US Black, White, Black 2 and White 2 revision 0." };
+  const state: PartyQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false, updateAvailable: false, canUninstall: false, candyInstalled: false, candyCompatible: false, hideFlag: null, sectionHideFlags: emptySectionFlags(), message: "Party toolbar supports US Black, White, Black 2 and White 2 revision 0." };
   const v = p.session.baseVersion;
   if ((p.session.baseRom !== "BW2" && p.session.baseRom !== "BW") || (v !== "B2" && v !== "W2" && v !== "B" && v !== "W") || !p.originalRomBytes)
     return state;
@@ -170,8 +165,9 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
       return state;
     state.supported = true;
     let configuredCandyItemId: number | undefined;
+    const fieldPaths: string[] = [];
     for (const entry of listCodeInjectionDlls(p)) {
-      const b = bytesAt(p, r, entry.path);
+      const b = readCodeInjectionFile(p, r, entry.path);
       let rpm: RpmModule | undefined;
       try {
         if (b)
@@ -183,7 +179,7 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
         const companionProfile = candidate.games[v];
         return companionProfile && entry.path === `patches/${uiFieldCompanion(companionProfile)?.fileName}`
           && matchesUiFieldCompanion(rpm!, companionProfile, v, candidate.version);
-      })) continue;
+      })) { fieldPaths.push(entry.path); continue; }
       if (rpm && recognized(rpm, v) && entry.target === "patches") {
         if (state.installed)
           throw new Error("Duplicate Party toolbar modules. Remove the duplicate before installing.");
@@ -199,14 +195,18 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
     }
     const field = uiFieldCompanion(profile);
     if (state.installed && field) {
-      const bytes = bytesAt(p, r, `patches/${field.fileName}`);
+      const bytes = readCodeInjectionFile(p, r, `patches/${field.fileName}`);
       if (!bytes || !matchesUiFieldCompanion(parseRpm(bytes, { allowedMagics: ["DLXF"] }), profile, v, bundle.version)) state.updateAvailable = true;
     }
-    const archive = bytesAt(p, r, manifest.archivePath);
+    const archive = readCodeInjectionFile(p, r, manifest.archivePath);
     if (archive) {
       const { candyItemId, ...settings } = configuration(archive, v);
       configuredCandyItemId = candyItemId;
       Object.assign(state, settings);
+      if (state.dllPath && fieldPaths.length <= 1) {
+        state.fieldPaths = fieldPaths;
+        state.canUninstall = !codeInjectionRemovalBlocker(p, r, [state.dllPath, ...fieldPaths, manifest.archivePath]);
+      }
       if (state.installed && new NARC(archive).files.slice(1).some((file, index) => fingerprint(file) !== graphics(bundle, v)[index])) state.updateAvailable = true;
     }
     else if (state.installed)
@@ -248,6 +248,7 @@ function stageArchive(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Arr
   } else if (id !== undefined) {
     project.fileSystem ??= { replacements: {} };
     project.fileSystem.replacements[id] = bytes;
+    delete project.fileSystem.tombstones?.[id];
   } else {
     addRomFile(project, manifest.archivePath, bytes);
   }
@@ -314,9 +315,18 @@ export function disablePartyQuickActions(project: ProjectState) {
   const status = getPartyQuickActionsStatus(project);
   if (!status.installed || !status.compatible || !project.originalRomBytes) throw new Error(status.message);
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
-  const archive = new NARC(bytesAt(project, rom, manifest.archivePath)!);
+  const archive = new NARC(readCodeInjectionFile(project, rom, manifest.archivePath)!);
   writeU32(archive.files[0], 12, 0);
   updateConfigurationChecksum(archive.files[0]);
   stageArchive(project, rom, archive.save());
   recordGenericChange(project, "code_injection", "Party toolbar disabled.", "Party Toolbar", { key: "code-injection:party-quick-actions" });
+}
+
+
+/** Remove the toolbar's private runtime and archive. Infinite Candy may be used independently. */
+export function uninstallPartyQuickActions(project: ProjectState): void {
+  const status = getPartyQuickActionsStatus(project);
+  if (!status.canUninstall || !status.dllPath) throw new Error("The installed Party Toolbar files could not be verified for removal.");
+  removeOwnedCodeInjectionFiles(project, [status.dllPath, ...(status.fieldPaths ?? []), manifest.archivePath]);
+  recordGenericChange(project, "code_injection", "Party Toolbar removed. Infinite Rare Candy was retained.", "Party Toolbar", { key: "code-injection:party-quick-actions" });
 }

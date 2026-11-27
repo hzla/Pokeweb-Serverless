@@ -1,10 +1,11 @@
 import manifest from "../assets/codeinjection/autorunManifest.json";
 import { loadOverlayTable } from "../nds/code";
 import { NintendoDSRom } from "../nds/rom";
+import { sha256Hex } from "../nds/sha256";
 import { recordGenericChange } from "./actionChangelog";
-import { installCodeInjectionPatch } from "./codeInjectionInstall";
+import { installCodeInjectionPatch, uninstallCodeInjectionPatch } from "./codeInjectionInstall";
 import { getRomFileBytes } from "./fileSystemModel";
-import { canRemoveStagedCodeInjectionDll, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { canRemoveStagedCodeInjectionDll, codeInjectionRemovalBlocker, listCodeInjectionDlls, readCodeInjectionFile, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import { assertOptionRowsCompatible, autorunOptionsTextInstalled, readOptionRowsState, reconcileOptionRows, stageAutorunOptionsText } from "./optionRowsModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
@@ -71,10 +72,12 @@ export function getAutorunStatus(project: ProjectState): AutorunStatus {
   if (module) {
     state.installed = true;
     state.dllPath = module.path;
-    state.canUninstall = canRemoveStagedCodeInjectionDll(project, module.path);
-    const bytes = rom ? moduleBytes(project, rom, module.path) : undefined;
+    const bytes = readCodeInjectionFile(project, rom, module.path);
     const rpm = bytes ? readRpm(bytes) : undefined;
     if (rpm && !isAutorunModule(rpm, version)) return { ...state, message: `${module.fileName} is not a recognized Autorun runtime.` };
+    state.canUninstall = !!bytes && !!rpm && (canRemoveStagedCodeInjectionDll(project, module.path)
+      || sha256Hex(bytes) === manifest.games[version].sha256)
+      && !codeInjectionRemovalBlocker(project, rom, [module.path]);
     state.updateAvailable = (rpm !== undefined && rpm.metadata.PMCVersion !== manifest.version) || !state.optionsRow;
   }
   if (!rom) return { ...state, compatible: state.installed, message: state.installed ? "Autorun is installed." : "Reload the ROM to check Autorun compatibility." };
@@ -116,17 +119,15 @@ export async function stageAutorun(project: ProjectState, options: AutorunInstal
   return { ...status, dllPath: result.path };
 }
 
-/** Remove a staged Autorun install, its Options row and text. */
+/** Remove Autorun, its Options row and text. */
 export function uninstallAutorun(project: ProjectState): Promise<void> {
-  return installCodeInjectionPatch(project, async (staged) => {
+  return uninstallCodeInjectionPatch(project, async (staged) => {
     const version = autorunVersion(staged);
     if (!version) throw new Error("Autorun supports US Black, White, Black 2 and White 2.");
-    const path = autorunDllPath(version);
-    if (!canRemoveStagedCodeInjectionDll(staged, path)) {
-      throw new Error("Autorun is part of the loaded ROM and cannot be removed until NitroFS file deletion is supported.");
-    }
-    removeStagedCodeInjectionDll(staged, path);
-    await reconcileOptionRows(staged, { autorun: false });
+    const status = getAutorunStatus(staged);
+    if (!status.canUninstall || !status.dllPath) throw new Error("The installed Autorun module could not be verified for removal.");
+    removeOwnedCodeInjectionFiles(staged, [status.dllPath]);
+    await reconcileOptionRows(staged, { autorun: false }, { verifyExisting: true });
     stageAutorunOptionsText(staged, false);
     recordGenericChange(staged, "code_injection", "Autorun removed.", "Autorun", { key: "code-injection:autorun" });
   });

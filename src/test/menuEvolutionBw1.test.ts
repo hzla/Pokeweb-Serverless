@@ -62,7 +62,7 @@ for (const game of ["B", "W"] as const) describe.runIf(romFixtureExists(paths[ga
     expect(getMenuEvolutionInstallStatus(p)).toMatchObject({ installed: true, upToDate: true, compatible: true });
     appendPokemonKoMove(p, 25); updatePokemonKoMoveField(p, 25, "move_id_0", "85"); updatePokemonKoMoveField(p, 25, "ko_count_0", "31");
     const bytes = await exportModifiedRom(p), reopened = await fixture(bytes), rom = new NintendoDSRom(bytes);
-    expect(getMenuEvolutionInstallStatus(reopened)).toMatchObject({ installed: true, upToDate: true, compatible: true, canUninstall: false,
+    expect(getMenuEvolutionInstallStatus(reopened)).toMatchObject({ installed: true, upToDate: true, compatible: true, canUninstall: true,
       messageEntryId: result.messageEntryId, relearnMessageEntryId: result.relearnMessageEntryId });
     const installed = await installMenuEvolution(reopened); expect(installed.messageEntryId).toBe(result.messageEntryId);
     expect(installed.relearnMessageEntryId).toBe(result.relearnMessageEntryId);

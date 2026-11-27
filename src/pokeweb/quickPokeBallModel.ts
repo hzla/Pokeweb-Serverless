@@ -7,7 +7,7 @@ import { sha256Hex } from "../nds/sha256";
 import { recordGenericChange } from "./actionChangelog";
 import { installCodeInjectionPatch, withProjectMutationLock } from "./codeInjectionInstall";
 import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
-import { canRemoveStagedCodeInjectionDll, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { codeInjectionRemovalBlocker, listCodeInjectionDlls, readCodeInjectionFile, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 
@@ -24,13 +24,6 @@ const sessionUrls = {
   W2: new URL("../assets/codeinjection/QuickPokeBallSessionW2.dll", import.meta.url),
 };
 const archiveUrl = new URL("../assets/codeinjection/quickPokeBall.narc", import.meta.url);
-
-function romFile(project: ProjectState, rom: NintendoDSRom | undefined, path: string) {
-  const added = Object.keys(project.fileSystem?.additions ?? {}).find(key => key.toLowerCase() === path.toLowerCase());
-  if (added) return project.fileSystem?.additions?.[added];
-  const id = rom?.filenames.idOf(path);
-  return rom && id !== undefined ? project.fileSystem?.replacements?.[id] ?? rom.files[id] : undefined;
-}
 
 function overlapsHook(rpm: RpmModule, { segment, address }: { segment: string; address: number }) {
   return rpm.relocations.some(({ target, sourceSymbolIndex }) => {
@@ -69,7 +62,7 @@ type QuickPokeBallStatus = {
 };
 
 export function getQuickPokeBallStatus(project: ProjectState, bytes = project.originalRomBytes): QuickPokeBallStatus {
-  const state = { supported: false, compatible: false, installed: false, updateAvailable: false, canUninstall: false,
+  const state: QuickPokeBallStatus = { supported: false, compatible: false, installed: false, updateAvailable: false, canUninstall: false,
     message: "Quick Poké Ball supports US revision-0 Black, White, Black 2, and White 2." };
   const version = project.session.baseVersion;
   if (version !== "B" && version !== "W" && version !== "B2" && version !== "W2") return state;
@@ -88,7 +81,7 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
   let sessionPath: string | undefined;
   let previousRuntime = false;
   for (const entry of listCodeInjectionDlls(project)) {
-    const data = romFile(project, rom, entry.path);
+    const data = readCodeInjectionFile(project, rom, entry.path);
     if (!data && !rom) continue; // IndexedDB-backed projects are checked again during installation.
     const hash = entry.target === "patches" && data &&
       (data.length === profile.size || data.length === profile.session.size ||
@@ -117,14 +110,16 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
     }
   }
 
-  const archive = romFile(project, rom, manifest.archivePath);
+  const archive = readCodeInjectionFile(project, rom, manifest.archivePath);
   const graphics = archive && archiveVersion(archive);
   if (archive && !graphics)
     return { ...state, message: `Quick Poké Ball does not recognize ${manifest.archivePath}.` };
   state.installed = !!dllPath && !!archive && (previousRuntime || !!sessionPath);
   state.updateAvailable = previousRuntime || (state.installed && graphics === "previous");
+  state.dllPath = dllPath;
+  state.sessionPath = sessionPath;
   const paths = [dllPath, sessionPath].filter((path): path is string => path !== undefined);
-  state.canUninstall = paths.length > 0 && paths.every(path => canRemoveStagedCodeInjectionDll(project, path));
+  state.canUninstall = paths.length > 0 && !codeInjectionRemovalBlocker(project, rom, archive ? [...paths, manifest.archivePath] : paths);
 
   if (rom) {
     try {
@@ -154,7 +149,7 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
     : dllPath && !sessionPath ? "Session module missing. Reinstall to repair."
     : dllPath ? "Graphics missing. Reinstall to repair."
     : sessionPath ? "Battle module missing. Reinstall to repair." : "";
-  return { ...state, compatible: true, message, dllPath, sessionPath };
+  return { ...state, compatible: true, message };
 }
 
 async function readBundle(url: URL, expected: string) {
@@ -182,7 +177,10 @@ export async function installQuickPokeBall(project: ProjectState) {
       stageCodeInjectionDll(staged, status.dllPath?.split("/").at(-1) ?? profile.fileName, dll);
     const fileId = rom.filenames.idOf(manifest.archivePath);
     if (fileId === undefined) addRomFile(staged, manifest.archivePath, archive);
-    else setRomFileReplacement(staged, fileId, archive);
+    else {
+      setRomFileReplacement(staged, fileId, archive);
+      delete staged.fileSystem?.tombstones?.[fileId];
+    }
     const message = status.updateAvailable ? "Updated Quick Poké Ball." : "Installed Quick Poké Ball.";
     recordGenericChange(staged, "code_injection", message, "Quick Poké Ball", { key: "code-injection:quick-poke-ball" });
   });
@@ -191,10 +189,11 @@ export async function installQuickPokeBall(project: ProjectState) {
 export async function uninstallQuickPokeBall(project: ProjectState) {
   await withProjectMutationLock(project, () => {
     const status = getQuickPokeBallStatus(project);
-    if (!status.canUninstall) throw new Error("Only a staged Quick Poké Ball installation can be removed.");
-    if (status.dllPath) removeStagedCodeInjectionDll(project, status.dllPath);
-    if (status.sessionPath) removeStagedCodeInjectionDll(project, status.sessionPath);
-    delete project.fileSystem?.additions?.[manifest.archivePath];
-    recordGenericChange(project, "code_injection", "Removed the staged Quick Poké Ball patch.", "Quick Poké Ball", { key: "code-injection:quick-poke-ball" });
+    const paths = [status.dllPath, status.sessionPath].filter((path): path is string => path !== undefined);
+    if (!status.canUninstall || !paths.length) throw new Error("The installed Quick Poké Ball files could not be verified for removal.");
+    const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+    if (readCodeInjectionFile(project, rom, manifest.archivePath)) paths.push(manifest.archivePath);
+    removeOwnedCodeInjectionFiles(project, paths, rom);
+    recordGenericChange(project, "code_injection", "Removed Quick Poké Ball.", "Quick Poké Ball", { key: "code-injection:quick-poke-ball" });
   });
 }

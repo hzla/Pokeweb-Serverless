@@ -6,11 +6,11 @@ import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import {
-  canRemoveStagedCodeInjectionDll,
+  codeInjectionRemovalBlocker,
   getPmcInstallStatus,
   installBundledPmc,
   listCodeInjectionDlls,
-  removeStagedCodeInjectionDll,
+  removeOwnedCodeInjectionFiles,
   stageCodeInjectionDll,
   type CodeInjectionDllInstallResult,
 } from "./pmcModel";
@@ -94,7 +94,7 @@ export function getTagBattleStabilizationStatus(project: ProjectState): TagBattl
   }
   status.installed = installedPaths.size > 0;
   status.dllPath = [...installedPaths][0];
-  status.canUninstall = installedPaths.size === 1 && canRemoveStagedCodeInjectionDll(project, status.dllPath!);
+  status.canUninstall = installedPaths.size === 1 && !codeInjectionRemovalBlocker(project, rom, [status.dllPath!]);
   if (conflicts.length || installedPaths.size > 1) {
     status.message = installedPaths.size > 1
       ? "Multiple Tag Battle Stabilization DLLs are present. Remove the duplicate before installing."
@@ -157,9 +157,9 @@ export async function installTagBattleStabilization(project: ProjectState): Prom
 
 export function uninstallTagBattleStabilization(project: ProjectState): void {
   const status = getTagBattleStabilizationStatus(project);
-  if (!status.canUninstall || !status.dllPath) throw new Error("Only a Tag Battle Stabilization DLL staged in this project can be removed.");
-  removeStagedCodeInjectionDll(project, status.dllPath);
-  recordGenericChange(project, "code_injection", "Tag Battle Stabilization removed from the staged ROM changes.", "Tag Battle Stabilization", {
+  if (!status.canUninstall || !status.dllPath) throw new Error("The installed Tag Battle Stabilization module could not be verified for removal.");
+  removeOwnedCodeInjectionFiles(project, [status.dllPath]);
+  recordGenericChange(project, "code_injection", "Tag Battle Stabilization removed.", "Tag Battle Stabilization", {
     key: "code-injection:tag-battle-stabilization",
   });
 }

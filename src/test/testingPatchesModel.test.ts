@@ -70,8 +70,9 @@ it("exports all three independent modules together and recognizes them on reimpo
   const loaded = project(out);
   for (const id of ids) {
     expect(exported.getFileByName(`patches/${TESTING_PATCHES[id].fileName}`)).toEqual(dll(id));
-    expect(getTestingPatchStatus(loaded, id)).toMatchObject({ compatible: true, installed: true, canUninstall: false });
-    expect(() => uninstallTestingPatch(loaded, id)).toThrow(/staged/u);
+    expect(getTestingPatchStatus(loaded, id)).toMatchObject({ compatible: true, installed: true, canUninstall: true });
+    uninstallTestingPatch(loaded, id);
+    expect(getTestingPatchStatus(loaded, id).installed).toBe(false);
   }
   const original = new NintendoDSRom(p.originalRomBytes!);
   for (const ov of [36, 167, 169]) expect(exported.loadArm9Overlays([ov]).get(ov)!.data).toEqual(original.loadArm9Overlays([ov]).get(ov)!.data);

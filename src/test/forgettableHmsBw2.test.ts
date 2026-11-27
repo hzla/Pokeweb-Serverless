@@ -6,6 +6,7 @@ import {
   findBw2MoveIsHm,
   findForgettableHmsConflict,
   getForgettableHmsPmcStatus,
+  uninstallForgettableHmsPmc,
   installForgettableHmsPmc,
   readForgettableHmsDll,
   restoreInlineForgettableHmsEdit,
@@ -115,6 +116,9 @@ describe("Black 2 / White 2 forgettable HMs (PMC)", () => {
     expect(project.patches?.applied?.forgettableHms).toBe(true);
     expect(getForgettableHmsPmcStatus(project)).toBe("patched");
     expect((await installForgettableHmsPmc(project)).status).toBe("already-applied");
+    uninstallForgettableHmsPmc(project);
+    expect(getForgettableHmsPmcStatus(project)).toBe("unpatched");
+    expect(project.arm9).toEqual(arm9Before);
   });
 
   it("migrates an inline ARM9 edit to the PMC runtime", async () => {

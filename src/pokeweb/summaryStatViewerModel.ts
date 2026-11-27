@@ -8,8 +8,8 @@ import manifestData from "../assets/codeinjection/summaryStatViewerManifest.json
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
-import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installPmcBytes,
-  listCodeInjectionDlls, loadBundledPmcBytes, removeStagedCodeInjectionDll, stageCodeInjectionDll,
+import { adoptExistingPmcInstall, codeInjectionRemovalBlocker, getPmcInstallStatus, installPmcBytes,
+  listCodeInjectionDlls, loadBundledPmcBytes, removeOwnedCodeInjectionFiles, stageCodeInjectionDll,
   type CodeInjectionDllInstallResult } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
@@ -123,7 +123,7 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
   }
   if (found.length > 1) return { ...state, installed: true, message: "Multiple Summary viewer DLLs are present. Remove the duplicate before updating." };
   state.installed = found.length === 1; state.dllPath = found[0];
-  state.canUninstall = Boolean(state.dllPath && canRemoveStagedCodeInjectionDll(project, state.dllPath));
+  state.canUninstall = Boolean(state.dllPath && !codeInjectionRemovalBlocker(project, rom, [state.dllPath]));
   if (rom) {
     try {
       const overlay = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
@@ -184,7 +184,7 @@ export async function installSummaryStatViewer(project: ProjectState, options: S
 }
 export function uninstallSummaryStatViewer(project: ProjectState): void {
   const status = getSummaryStatViewerStatus(project);
-  if (!status.canUninstall || !status.dllPath) throw new Error("Only a Summary viewer staged in this project can be removed. A DLL built into the loaded ROM cannot yet be deleted.");
-  removeStagedCodeInjectionDll(project, status.dllPath);
-  recordGenericChange(project, "code_injection", "Staged Summary IV/EV Viewer removed.", "Summary IV/EV Viewer", { key: "code-injection:summary-stat-viewer" });
+  if (!status.canUninstall || !status.dllPath) throw new Error("The installed Summary IV/EV Viewer could not be verified for removal.");
+  removeOwnedCodeInjectionFiles(project, [status.dllPath]);
+  recordGenericChange(project, "code_injection", "Summary IV/EV Viewer removed.", "Summary IV/EV Viewer", { key: "code-injection:summary-stat-viewer" });
 }

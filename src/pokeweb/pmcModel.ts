@@ -1,6 +1,7 @@
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { decompressCode } from "../nds/codeCompression";
-import { cloneFolder, type Folder } from "../nds/fnt";
+import { cloneFolder, reserveFilePath, type Folder } from "../nds/fnt";
+import { sha256Hex } from "../nds/sha256";
 import { NintendoDSRom } from "../nds/rom";
 import { readRelocatedIconPalette, WHITE_2_ICON_PALETTE_POINTER_OFFSET } from "./pokemonIconPaletteRuntime";
 import { recordGenericChange } from "./actionChangelog";
@@ -1239,6 +1240,75 @@ export function removeStagedCodeInjectionDll(project: ProjectState, path: string
   }
 }
 
+/** Read a managed file from the effective project, including an exported installation. */
+export function readCodeInjectionFile(project: ProjectState, rom: NintendoDSRom | undefined, path: string): Uint8Array | undefined {
+  const match = Object.keys(project.fileSystem?.additions ?? {}).find(key => key.toLowerCase() === path.toLowerCase());
+  if (match !== undefined) return project.fileSystem?.additions?.[match];
+  const id = rom?.filenames.idOf(path);
+  return rom && id !== undefined && !project.fileSystem?.tombstones?.[id] ? getRomFileBytes(project, rom, id) : undefined;
+}
+
+/** Check the storage and links of files whose contents the calling installer has verified. */
+export function codeInjectionRemovalBlocker(project: ProjectState, rom: NintendoDSRom | undefined, paths: readonly string[]): string | undefined {
+  if (!paths.length) return "No patch files are available to remove.";
+  const removing = new Set(paths.map(path => path.toLowerCase()));
+  const exportHashes = new Set<number>();
+  const exportNames = new Set<string>();
+  for (const path of paths) {
+    const bytes = readCodeInjectionFile(project, rom, path);
+    if (!bytes) return `Reload the ROM to locate ${path}.`;
+    const id = rom?.filenames.idOf(path);
+    if (rom && id !== undefined) {
+      if (Object.values(project.narcs).some(store => store?.fileId === id)) return `${path} is open in a ROM editor.`;
+      if (listNamedRomFiles(rom.filenames).some(file => file.id === id && file.path !== path)) return `${path} shares a ROM file ID.`;
+      try { reserveFilePath(rom.filenames, path, id); }
+      catch (error) { return (error as Error).message; }
+    }
+    if (!/\.dll$/iu.test(path)) continue;
+    const musicConsumer = bgmMuteConsumer(project, path);
+    if (musicConsumer) return `${musicConsumer} requires this shared music runtime.`;
+    try {
+      for (const symbol of parseRpm(bytes, { allowedMagics: ["DLXF"] }).symbols) {
+        if (!(symbol.attributes & 1)) continue;
+        if (symbol.nameHash !== undefined) exportHashes.add(symbol.nameHash);
+        if (symbol.name) exportNames.add(symbol.name);
+      }
+    } catch { return `Could not read the module at ${path}.`; }
+  }
+  if (!exportHashes.size && !exportNames.size) return;
+  for (const module of listCodeInjectionDlls(project)) {
+    if (removing.has(module.path.toLowerCase())) continue;
+    const bytes = readCodeInjectionFile(project, rom, module.path);
+    if (!bytes) return `Reload the ROM to check links in ${module.path}.`;
+    try {
+      const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+      if (rpm.symbols.some(s => (s.attributes & 2) && (exportHashes.has(s.address) || (s.name && exportNames.has(s.name))))) {
+        return `${module.path} depends on a module being removed.`;
+      }
+    } catch { return `Could not check module links in ${module.path}.`; }
+  }
+}
+
+/** Remove verified files as a group. Empty reserved FAT slots preserve other file IDs. */
+export function removeOwnedCodeInjectionFiles(project: ProjectState, paths: readonly string[],
+  rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined): void {
+  const blocked = codeInjectionRemovalBlocker(project, rom, paths);
+  if (blocked) throw new Error(blocked);
+  const removing = new Set(paths.map(path => path.toLowerCase()));
+  for (const key of Object.keys(project.fileSystem?.additions ?? {})) {
+    if (removing.has(key.toLowerCase())) delete project.fileSystem?.additions?.[key];
+  }
+  for (const path of paths) {
+    const id = rom?.filenames.idOf(path);
+    if (id === undefined) continue;
+    setRomFileReplacement(project, id, new Uint8Array());
+    (project.fileSystem!.tombstones ??= {})[id] = path;
+  }
+  if (project.codeInjection?.modules) {
+    project.codeInjection.modules = project.codeInjection.modules.filter(module => !removing.has(module.path.toLowerCase()));
+  }
+}
+
 export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]> {
   const fromState = project.codeInjection?.modules ?? [];
   const seen = new Set<string>();
@@ -1289,6 +1359,34 @@ export function detectBundledDoubleBattleFixDll(project: ProjectState): "patched
   const fileName = DOUBLE_BATTLE_FIX_FILENAMES[project.session.baseVersion];
   const path = `patches/${fileName}`;
   return listCodeInjectionDlls(project).some((module) => module.path === path) ? "patched" : "unpatched";
+}
+
+const DOUBLE_BATTLE_FIX_HASHES = {
+  B: "a454f54ae412abef2f6123ca3ae85c67c1bc5cf669ac569100599160f6bda219",
+  B2: "0ec0fdefa4437808b0e223691b3d0952bdbd792dfe95830d19a845a0d073b3e1",
+  W2: "d8ea7bfd01775ea0d30d235845a31f9a66a6876829747133d4d6661e7a841170",
+};
+
+function removableDoubleBattleFix(project: ProjectState): string | undefined {
+  const game = project.session.baseVersion;
+  if ((game !== "B" && game !== "B2" && game !== "W2") || detectBundledDoubleBattleFixDll(project) !== "patched") return;
+  try {
+    const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+    const path = `patches/${DOUBLE_BATTLE_FIX_FILENAMES[game]}`;
+    const bytes = readCodeInjectionFile(project, rom, path);
+    if (bytes && sha256Hex(bytes) === DOUBLE_BATTLE_FIX_HASHES[game] && !codeInjectionRemovalBlocker(project, rom, [path])) return path;
+  } catch { return; }
+}
+
+export function canUninstallDoubleBattleFix(project: ProjectState): boolean {
+  return removableDoubleBattleFix(project) !== undefined;
+}
+
+export function uninstallDoubleBattleFix(project: ProjectState): void {
+  const path = removableDoubleBattleFix(project);
+  if (!path) throw new Error("The installed Double Battle Fix module could not be verified for removal.");
+  removeOwnedCodeInjectionFiles(project, [path]);
+  recordGenericChange(project, "code_injection", "Single-NPC Double Battle Fix removed.", "Single-NPC Double Battle Fix", { key: "code-injection:double-battle-fix" });
 }
 
 export function detectBundledMainMenuSkipDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {

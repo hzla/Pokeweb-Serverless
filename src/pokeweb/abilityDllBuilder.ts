@@ -61,6 +61,7 @@ type AbilityModuleOptions = {
     fieldConditions?: boolean;
     effectConditions?: boolean;
     statStageConditions?: boolean;
+    alignRuleRecords?: boolean;
 
     // The ability and item DLLs can share the move-parameter lookup.
     ownsMoveParamHook?: boolean;
@@ -114,6 +115,7 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
     fieldConditions = true,
     effectConditions = true,
     statStageConditions = effectConditions,
+    alignRuleRecords = statStageConditions,
 }: AbilityModuleOptions = {}): RpmModule {
     actionResults = actionResults && battleMessages && customFlags;
     statSource = statSource && actionResults;
@@ -211,7 +213,7 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
     });
 
     const ruleBytes = encodeAbilityExecutableRules(entries, c.profiles, {
-        compactExecution, usesLocalConditions, battleMessages, formConversion,
+        compactExecution, usesLocalConditions, battleMessages, formConversion, alignRuleRecords,
     });
     const ruleDataAddress = appendRuntimeData(rpm, "AbilityRuleData", ruleBytes);
     if (modern) {
@@ -256,6 +258,7 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
     if(fieldConditions)rpm.metadata.PokewebAbilityFieldConditions=1;
     if(effectConditions)rpm.metadata.PokewebAbilityEffectConditions=1;
     if (statStageConditions) rpm.metadata.PokewebAbilityStatStageConditions = 1;
+    if (alignRuleRecords) rpm.metadata.PokewebAbilityAlignedRules = 1;
     if(nativeFlags)rpm.metadata.PokewebAbilityNativeMoveFlags=1;
     if (modern) {
         rpm.metadata.PokewebAbilityMoveClasses = 1;

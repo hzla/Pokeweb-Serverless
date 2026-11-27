@@ -57,7 +57,9 @@ describe("Tag Battle Stabilization", () => {
     for (const id of [profile.calls[0].overlayId, profile.entries[0].overlayId])
       expect(exported.loadArm9Overlays([id]).get(id)!.data).toEqual(source.loadArm9Overlays([id]).get(id)!.data);
     const reimported = makeProject(exported.data, game);
-    expect(getTagBattleStabilizationStatus(reimported)).toMatchObject({ installed: true, compatible: true, canUninstall: false });
+    expect(getTagBattleStabilizationStatus(reimported)).toMatchObject({ installed: true, compatible: true, canUninstall: true });
+    uninstallTagBattleStabilization(reimported);
+    expect(getTagBattleStabilizationStatus(reimported).installed).toBe(false);
     await installTagBattleStabilization(reimported);
     expect(reimported.fileSystem?.additions?.[path]).toBeUndefined();
     expect(listCodeInjectionDlls(reimported).filter((entry) => entry.path === path)).toHaveLength(1);
@@ -157,14 +159,14 @@ describe("Tag Battle Stabilization", () => {
     expect(project.fileSystem?.additions?.[dllPath]).toBeUndefined();
   });
 
-  it("rejects duplicate copies and protects a DLL already present in an imported ROM", async () => {
+  it("rejects duplicate copies in staged and imported ROMs", async () => {
     const project = makeProject();
     stubAssets();
     await installTagBattleStabilization(project);
     stageCodeInjectionDll(project, "CascadeTagAI.dll", dll);
     await expect(installTagBattleStabilization(project)).rejects.toThrow(/Multiple/u);
     const reimported = makeProject(await exportModifiedRom(project));
-    expect(() => uninstallTagBattleStabilization(reimported)).toThrow(/staged/u);
+    expect(() => uninstallTagBattleStabilization(reimported)).toThrow(/could not be verified/u);
   });
 
   it("does not install PMC when the bundled DLL fails to load or is corrupt", async () => {

@@ -6,13 +6,15 @@ import { typeIconBorderHex, typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_B
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
 import { frostbiteSnowStatus, installFrostbiteSnowPatch } from "../pokeweb/frostbiteSnowModel";
 import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
-import { getDebugSaveFlagStatus, installDebugSaveFlag, parseDebugSaveFlag } from "../pokeweb/debugSaveFlagModel";
+import { getDebugSaveFlagStatus, installDebugSaveFlag, parseDebugSaveFlag, uninstallDebugSaveFlag } from "../pokeweb/debugSaveFlagModel";
 import { renderInlineStatus as renderStatusBadge } from "./inlineStatus";
 import { installCodeInjectionPatch, withProjectMutationLock } from "../pokeweb/codeInjectionInstall";
-import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag, PARTY_TOOLBAR_SECTIONS } from "../pokeweb/partyQuickActionsModel";
+import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, uninstallPartyQuickActions, parsePartyToolbarHideFlag, PARTY_TOOLBAR_SECTIONS } from "../pokeweb/partyQuickActionsModel";
 import {
   detectBundledFormEvolutionDll,
+  canUninstallDoubleBattleFix,
   detectBundledDoubleBattleFixDll,
+  uninstallDoubleBattleFix,
   detectBundledBgmToggleDll,
   detectBundledOverworldWeatherRuntime,
   getPmcInstallStatus,
@@ -73,7 +75,7 @@ import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryS
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/trainerLevelCapsModel";
-import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
+import { canUninstallForgettableHmsPmc, getForgettableHmsPmcStatus, stageForgettableHmsPmc, uninstallForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
 import { getShinyOddsStatus, SHINY_ODDS_MAX_ROLLS, stageShinyOdds, wildShinyChance } from "../pokeweb/shinyOddsModel";
 import { getTrainerCustomizationStatus, installTrainerCustomization } from "../pokeweb/trainerCustomizationModel";
 import { applyChallengeModeStatsFix, getChallengeModeStatsStatus } from "../pokeweb/challengeModeStatsModel";
@@ -415,7 +417,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <button class="btn -default" type="button" id="reset-move-highlight-colors">Reset colors</button>` : ""}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-${card.id}-btn" type="button" ${card.status.supported && card.status.compatible ? "" : "disabled"}>${card.status.legacyCombined ? "Replace combined" : card.status.updateAvailable ? "Update" : card.status.installed ? "Reinstall" : "Install"}</button>
-            <button class="btn -default" id="uninstall-${card.id}-btn" type="button" ${card.status.canUninstall ? "" : "disabled"} title="${card.id === "move-effectiveness" ? "Remove the standalone preview from the next ROM export." : "Only this project's staged standalone DLL can be removed."}">Uninstall</button>
+            <button class="btn -default" id="uninstall-${card.id}-btn" type="button" ${card.status.canUninstall ? "" : "disabled"} title="Remove the verified standalone patch from the next ROM export.">Uninstall</button>
             <div class="code-injection-note" id="${card.id}-note" aria-live="polite"></div>
           </div>
           ${card.id === "battle-hud" ? `<div class="code-injection-credits" aria-label="Type Icons credits">
@@ -645,6 +647,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"} title="Install the bundled double battle fix and any missing dependencies.">
               Install Double Battle Fix
             </button>
+            ${doubleBattleFixStatus === "patched" ? `<button class="btn -default" id="uninstall-double-battle-fix-btn" type="button" ${canUninstallDoubleBattleFix(project) ? "" : "disabled"}>Uninstall</button>` : ""}
             <div class="code-injection-note" id="double-battle-fix-note" aria-live="polite"></div>
           </div>
           <div class="code-injection-credits" aria-label="Double Battle Fix credits">
@@ -671,7 +674,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               Install Tag Battle Stabilization
             </button>
             <button class="btn -default" id="uninstall-tag-battle-stabilization-btn" type="button" ${tagBattleStatus.canUninstall ? "" : "disabled"}
-              title="${tagBattleStatus.installed && !tagBattleStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Tag Battle Stabilization DLL."}">
+              title="Remove the verified Tag Battle Stabilization module.">
               Uninstall Tag Battle Stabilization
             </button>
             <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
@@ -686,7 +689,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-rotation-battle-ai-btn" type="button"
               ${rotationBattleAi.compatible && !rotationBattleAi.installed ? "" : "disabled"}>Install Rotation Battle AI</button>
-            ${rotationBattleAi.canUninstall ? '<button class="btn -default" id="uninstall-rotation-battle-ai-btn" type="button">Remove staged patch</button>' : ""}
+            ${rotationBattleAi.canUninstall ? '<button class="btn -default" id="uninstall-rotation-battle-ai-btn" type="button">Uninstall</button>' : ""}
             <div class="code-injection-note" id="rotation-battle-ai-note" role="status">${escapeHtml(rotationBattleAi.message)}</div>
           </div>
         </section>
@@ -761,7 +764,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-summary-stat-btn" type="button" ${summaryStatStatus.compatible ? "" : "disabled"}>${summaryStatStatus.updateAvailable ? "Update Viewer" : summaryStatStatus.installed ? "Apply Settings" : "Install Summary IV/EV Viewer"}</button>
             <button class="btn -default" id="uninstall-summary-stat-btn" type="button" ${summaryStatStatus.canUninstall ? "" : "disabled"}
-              title="${summaryStatStatus.installed && !summaryStatStatus.canUninstall ? "A DLL built into the loaded ROM cannot yet be removed." : "Remove the staged viewer."}">Remove</button>
+              title="Remove the verified Summary viewer module.">Uninstall</button>
             <div class="code-injection-note" id="summary-stat-note" aria-live="polite"></div>
           </div>
         </section>
@@ -796,7 +799,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${menuEvolutionStatus.updateAvailable ? "Update" : menuEvolutionStatus.installed ? "Reinstall" : "Install"}
             </button>
             <button class="btn -default" id="uninstall-menu-evolution-btn" type="button" ${menuEvolutionCanUninstall ? "" : "disabled"}
-              title="${menuEvolutionStatus.installed && !menuEvolutionCanUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : `Remove the staged ${MENU_EVOLUTION_TITLE} DLL.`}">
+              title="Remove the enhanced party-menu module.">
               Uninstall
             </button>
             <div class="code-injection-note" id="menu-evolution-note" aria-live="polite"></div>
@@ -816,6 +819,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </fieldset>
             <button class="btn -primary" id="install-party-tools-btn" type="button" ${partyTools.compatible && partyTools.candyCompatible ? "" : "disabled"}>${partyTools.updateAvailable ? "Update Toolbar" : partyTools.installed ? "Enable / Reinstall Toolbar" : "Install Party Toolbar"}</button>
             <button class="btn -default" id="disable-party-tools-btn" type="button" ${partyTools.installed && partyTools.enabled && partyTools.compatible ? "" : "disabled"}>Disable Toolbar</button>
+            <button class="btn -default" id="uninstall-party-tools-btn" type="button" ${partyTools.canUninstall ? "" : "disabled"}>Uninstall Toolbar</button>
             <div class="party-toolbar-status" id="party-tools-status" aria-live="polite">${escapeHtml(partyTools.message)}</div>
           </div>
         </section>
@@ -840,7 +844,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-learnset-viewer-btn" type="button" ${learnsetStatus.supported && learnsetStatus.compatible ? "" : "disabled"}>${learnsetInstallLabel()}</button>
-            <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Only staged companions can be removed; built-in ROM files cannot yet be deleted.">Uninstall</button>
+            <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Remove unused Learnset Viewer modules.">Uninstall</button>
             <div class="code-injection-note" id="learnset-viewer-note" aria-live="polite"></div>
           </div>
           <div class="code-injection-credits" aria-label="Party Menu Learnset/Dex Viewer credits">
@@ -862,7 +866,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible ? "" : "disabled"}>${quickActionsStatus.installed ? "Update / Enable" : "Install"}</button>
             <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
-            <button class="btn -default" id="remove-cgear-quick-actions-btn" type="button" ${quickActionsStatus.canRemove ? "" : "disabled"} title="Exported installations can be disabled; only newly staged modules can be removed.">Remove staged patch</button>
+            <button class="btn -default" id="remove-cgear-quick-actions-btn" type="button" ${quickActionsStatus.canRemove ? "" : "disabled"} title="Restore the native C-Gear graphics and remove the Quick Actions modules.">Uninstall</button>
             <div class="code-injection-note" id="cgear-quick-actions-note" aria-live="polite"></div>
           </div>
         </section>
@@ -892,7 +896,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           ${renderPatchShowcase("quickPokeBall")}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-quick-poke-ball-btn" type="button" ${quickPokeBall.compatible ? "" : "disabled"}>${quickPokeBall.updateAvailable ? "Update" : quickPokeBall.installed ? "Reinstall" : "Install"}</button>
-            <button class="btn -default" id="uninstall-quick-poke-ball-btn" type="button" ${quickPokeBall.canUninstall ? "" : "disabled"}>Remove staged patch</button>
+            <button class="btn -default" id="uninstall-quick-poke-ball-btn" type="button" ${quickPokeBall.canUninstall ? "" : "disabled"}>Uninstall</button>
             <div class="code-injection-note" id="quick-poke-ball-note" aria-live="polite"></div>
           </div>
           ${quickPokeBall.message && !quickPokeBall.installed ? `<div class="code-injection-note">${escapeHtml(quickPokeBall.message)}</div>` : ""}
@@ -1015,6 +1019,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -primary" id="install-forgettable-hms-btn" type="button" ${forgettableHmsStatus === "unpatched" || forgettableHmsStatus === "legacy" ? "" : "disabled"}${forgettableHmsStatus === "unknown" ? ' title="Could not find the Black 2 / White 2 HM check in ARM9. This ROM may have a different patch or code layout."' : ""}>
               ${forgettableHmsStatus === "patched" ? "Forgettable HMs Installed" : forgettableHmsStatus === "legacy" ? "Migrate to PMC" : "Install Forgettable HMs"}
             </button>
+            ${forgettableHmsStatus === "patched" ? `<button class="btn -default" id="uninstall-forgettable-hms-btn" type="button" ${canUninstallForgettableHmsPmc(project) ? "" : "disabled"}>Uninstall</button>` : ""}
             <div class="code-injection-note" id="forgettable-hms-note" aria-live="polite"></div>
           </div>
         </section>
@@ -1412,7 +1417,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${portaPcStatus.updateAvailable ? "Update Porta PC" : "Install Porta PC"}
             </button>
             <button class="btn -default" id="uninstall-porta-pc-btn" type="button" ${portaPcStatus.canUninstall ? "" : "disabled"}
-              title="${portaPcStatus.installed && !portaPcStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Porta PC DLL."}">
+              title="Remove the verified Porta PC module.">
               Uninstall Porta PC
             </button>
             <div class="code-injection-note" id="porta-pc-note" aria-live="polite"></div>
@@ -1425,7 +1430,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderSupportedRoms(US_BW2_REV0)}
             <label>Save flag <input id="debug-save-flag" type="text" value="${debugFlag.flag ? `0x${debugFlag.flag.toString(16).toUpperCase()}` : ""}" placeholder="None" spellcheck="false" ${debugFlag.supported ? "" : "disabled"}></label>
             <p>${escapeHtml(debugFlag.message)}</p>
-            <div class="code-injection-actions"><button class="btn -primary" id="install-debug-save-flag-btn" ${debugFlag.compatible ? "" : "disabled"}>${debugFlag.installed ? "Apply Changes" : "Install"}</button><div id="debug-save-flag-note" role="status"></div></div>
+            <div class="code-injection-actions"><button class="btn -primary" id="install-debug-save-flag-btn" ${debugFlag.compatible ? "" : "disabled"}>${debugFlag.installed ? "Apply Changes" : "Install"}</button>
+            ${debugFlag.installed ? `<button class="btn -default" id="uninstall-debug-save-flag-btn" type="button" ${debugFlag.canUninstall ? "" : "disabled"}>Uninstall</button>` : ""}
+            <div id="debug-save-flag-note" role="status"></div></div>
           </section>
           ${testingPatchCard("walk-through-walls")}
           ${testingPatchCard("instant-victory")}
@@ -1880,6 +1887,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+
+  for (const [id, uninstall] of [["debug-save-flag", uninstallDebugSaveFlag], ["forgettable-hms", uninstallForgettableHmsPmc], ["double-battle-fix", uninstallDoubleBattleFix]] as const) {
+    root.querySelector<HTMLButtonElement>(`#uninstall-${id}-btn`)?.addEventListener("click", async () => {
+      try {
+        await withProjectMutationLock(project, () => uninstall(project));
+        onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+      } catch (error) {
+        const note = root.querySelector(`#${id}-note`);
+        if (note) note.textContent = (error as Error).message;
+      }
+    });
+  }
 
   const pwtSixPokemonButton = root.querySelector<HTMLButtonElement>("#install-pwt-six-pokemon-btn");
   pwtSixPokemonButton?.addEventListener("click", async () => {
@@ -2525,6 +2545,16 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   root.querySelector<HTMLButtonElement>("#disable-party-tools-btn")?.addEventListener("click", () => {
     try { disablePartyQuickActions(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty); }
     catch (error) { const note = root.querySelector("#party-tools-status"); if (note) note.textContent = error instanceof Error ? error.message : String(error); }
+  });
+  root.querySelector<HTMLButtonElement>("#uninstall-party-tools-btn")?.addEventListener("click", async () => {
+    try {
+      await withProjectMutationLock(project, () => uninstallPartyQuickActions(project));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      const note = root.querySelector("#party-tools-status");
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
   });
 
   const menuEvolutionButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn");

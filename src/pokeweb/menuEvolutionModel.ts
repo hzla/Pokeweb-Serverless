@@ -3,14 +3,14 @@ import { readU16 } from "../nds/binary";
 import { decompressCode } from "../nds/codeCompression";
 import { getRomFileBytes } from "./fileSystemModel";
 import { NintendoDSRom } from "../nds/rom";
+import { sha256Hex } from "../nds/sha256";
 import { recordGenericChange } from "./actionChangelog";
 import { loadActiveRomBytes } from "./persistence";
 import {
-  canRemoveStagedCodeInjectionDll,
+  canRemoveStagedCodeInjectionDll, codeInjectionRemovalBlocker, readCodeInjectionFile, removeOwnedCodeInjectionFiles,
   getPmcInstallStatus,
   installBundledPmc,
   listCodeInjectionDlls,
-  removeStagedCodeInjectionDll,
   stageCodeInjectionDll,
 } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
@@ -189,9 +189,28 @@ export function isMenuEvolutionInstalled(project: ProjectState): boolean {
   return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === layout.dllPath.toLowerCase());
 }
 
+// SHA-256 of the bundled BW2 DLLs with the two message ID pairs cleared.
+const BW2_REMOVAL_HASHES = {
+  B2: "4adf77d4a4cd0ccd63cfc5913b7eb583d5af42a290f28e2d660270b82f7fe7c5",
+  W2: "1a90d5f827ce2373a55668e9a2561616c18302d8a6632cdecca459b9b4784135",
+};
+
 export function canUninstallMenuEvolution(project: ProjectState): boolean {
-  const layout = menuEvolutionLayout(project.session.baseVersion);
-  return Boolean(layout && canRemoveStagedCodeInjectionDll(project, layout.dllPath));
+  const game = project.session.baseVersion;
+  const layout = menuEvolutionLayout(game);
+  if (!layout) return false;
+  try {
+    const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+    const bytes = readCodeInjectionFile(project, rom, layout.dllPath);
+    if (!bytes || codeInjectionRemovalBlocker(project, rom, [layout.dllPath])) return false;
+    if (canRemoveStagedCodeInjectionDll(project, layout.dllPath)) return true;
+    if (!rom || rom.idCode !== layout.idCode || rom.data[0x1e] !== 0 || !readMessageIds(bytes)) return false;
+    if (isBw1(game)) return recognizedBw1Dll(bytes, bw1Profiles[game]);
+    const normalized = bytes.slice();
+    const [at] = findAll(bytes, MENU_EVOLUTION_CONFIG_MAGIC);
+    normalized.fill(0, at + 10, at + 18);
+    return (game === "B2" || game === "W2") && sha256Hex(normalized) === BW2_REMOVAL_HASHES[game];
+  } catch { return false; }
 }
 
 export function getMenuEvolutionInstallStatus(project: ProjectState): MenuEvolutionInstallStatus {
@@ -473,14 +492,14 @@ export function uninstallMenuEvolution(project: ProjectState): void {
     throw new Error(`${MENU_EVOLUTION_TITLE} supports verified US Black, White, Black 2 and White 2 profiles.`);
   }
   if (!canUninstallMenuEvolution(project)) {
-    throw new Error("An enhanced party-menu DLL already built into the loaded ROM cannot be removed by this editor yet.");
+    throw new Error("The installed enhanced party-menu module could not be verified for removal.");
   }
-  removeStagedCodeInjectionDll(project, layout.dllPath);
+  removeOwnedCodeInjectionFiles(project, [layout.dllPath]);
   if (project.codeInjection && !isBw1(project.session.baseVersion)) delete project.codeInjection.menuEvolution;
   recordGenericChange(
     project,
     "code_injection",
-    "The staged enhanced party-menu DLL was removed. Its harmless EVOLVE and RELEARN text entries were retained.",
+    "The enhanced party-menu module was removed. EVOLVE and RELEARN text entries were retained.",
     MENU_EVOLUTION_TITLE,
     { key: "code-injection:menu-evolution" },
   );

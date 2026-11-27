@@ -110,9 +110,13 @@ describe.each(["B","W"]as const)("BW1 C-Gear %s",game=>{
   expect(compile(doc,buttonAssets(p,new NintendoDSRom(p.originalRomBytes!))).budget).toEqual({bytes:15680,capacity:16384,oam:63});
   await installCGearQuickActions(p,{pcHideFlag:0x5ec});const applied=structuredClone(p.cgearButtons!.applied);
   p.cgearButtons!.document.buttons[0].label="DRAFT";
-  const reopened=project(game,await exportModifiedRom(p));expect(getCGearQuickActionsStatus(reopened)).toMatchObject({installed:true,enabled:true,compatible:true,canRemove:false,pcHideFlag:0x5ec});
+  const reopened=project(game,await exportModifiedRom(p));expect(getCGearQuickActionsStatus(reopened)).toMatchObject({installed:true,enabled:true,compatible:true,canRemove:true,pcHideFlag:0x5ec});
   expect(reopened.cgearButtons!.document.buttons[0].label).toBe("DRAFT");expect(reopened.cgearButtons!.applied).toEqual(applied);expect(hasUnappliedButtons(reopened)).toBe(true);
   disableCGearQuickActions(reopened);await installCGearQuickActions(reopened);expect(getCGearQuickActionsStatus(reopened).enabled).toBe(true);
+  removeCGearQuickActions(reopened);
+  const stripped=project(game,await exportModifiedRom(reopened));
+  expect(getCGearQuickActionsStatus(stripped)).toMatchObject({installed:false,enabled:false,compatible:true});
+  expect(stripped.cgearButtons!.document.buttons[0].label).toBe("DRAFT");
  });
  it("rejects invalid flags, incompatible actions, visible communication controls and excess buttons",async()=>{
   const p=project(game);assets();await installCGearQuickActions(p);const state=p.cgearButtons!,before=structuredClone(p.fileSystem),applied=structuredClone(state.applied);

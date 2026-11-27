@@ -8,7 +8,7 @@ import { NARC } from "../nds/narc";
 import * as pmc from "../pokeweb/pmcModel";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
-import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag } from "../pokeweb/partyQuickActionsModel";
+import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, uninstallPartyQuickActions, parsePartyToolbarHideFlag } from "../pokeweb/partyQuickActionsModel";
 import { listCodeInjectionDlls } from "../pokeweb/pmcModel";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { encodeGen5TextBank } from "../pokeweb/text";
@@ -81,6 +81,10 @@ for (const v of ["B2", "W2"] as const)
             expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ enabled: true, hideFlag: 0x05ee });
             await installPartyQuickActions(reopened, { hideFlag: null });
             expect(getPartyQuickActionsStatus(project(v, await exportModifiedRom(reopened)))).toMatchObject({ enabled: true, hideFlag: null });
+            expect(getPartyQuickActionsStatus(reopened).canUninstall).toBe(true);
+            uninstallPartyQuickActions(reopened);
+            const stripped = project(v, await exportModifiedRom(reopened));
+            expect(getPartyQuickActionsStatus(stripped)).toMatchObject({ installed: false, candyInstalled: true });
         });
         it("rejects invalid hide flags atomically and accepts saved flag boundaries", async () => {
             const p = project(v); assets(); await installPartyQuickActions(p, { hideFlag: 1 });

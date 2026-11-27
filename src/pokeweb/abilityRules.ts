@@ -92,14 +92,27 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
     return { conditions, effects };
 }
 /** A 256-entry offset index followed by bounded conditions and fixed effect records. */
-export function encodeAbilityRules(entries: ReadonlyMap<number, AbilityRuleSet>, deduplicate = false, effectEvents?: (effect: AbilityRuleEffect) => readonly number[]): Uint8Array {
+export function encodeAbilityRules(entries: ReadonlyMap<number, AbilityRuleSet>, deduplicate = false, {
+    effectEvents,
+    alignRecords = true,
+}: {
+    effectEvents?: (effect: AbilityRuleEffect) => readonly number[];
+    alignRecords?: boolean;
+} = {}): Uint8Array {
     const bytes: number[] = Array(512).fill(0);
     const records = new Map<string, number>();
     const emit = (op: number, arg: number, value: number) => bytes.push(op, arg, value & 255, value >>> 8 & 255);
     for (const [id, input] of [...entries].sort(([a], [b]) => a - b)) {
         if (!Number.isInteger(id) || id < 1 || id > 255)
             throw new Error("Ability IDs must be between 1 and 255.");
-        const rule = validateAbilityRule(input), key = JSON.stringify(rule), shared = deduplicate ? records.get(key) : undefined, at = shared ?? bytes.length;
+        const rule = validateAbilityRule(input), key = JSON.stringify(rule), shared = deduplicate ? records.get(key) : undefined;
+        // Local condition event lists can end at any byte. The loader writes
+        // native callback pointers as ARM words, so the next record must align.
+        if (alignRecords && shared === undefined) {
+            const padding = (4 - bytes.length % 4) % 4;
+            bytes.push(...Array<number>(padding).fill(0));
+        }
+        const at = shared ?? bytes.length;
         bytes[id * 2] = at & 255;
         bytes[id * 2 + 1] = at >>> 8;
         if(shared !== undefined) continue;

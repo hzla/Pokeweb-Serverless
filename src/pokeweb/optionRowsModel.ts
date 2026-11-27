@@ -3,7 +3,7 @@ import { loadOverlayTable } from "../nds/code";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { getRomFileBytes } from "./fileSystemModel";
-import { canRemoveStagedCodeInjectionDll, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { canRemoveStagedCodeInjectionDll, listCodeInjectionDlls, removeStagedCodeInjectionDll, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import { decodeGen5TextBank, encodeGen5TextBank } from "./text";
@@ -134,7 +134,7 @@ export function assertOptionRowsCompatible(project: ProjectState): void {
  * keep their current state; Following's row also counts as present while its
  * own Options module is active. Runs inside an installer's staged project.
  */
-export async function reconcileOptionRows(project: ProjectState, want: Partial<Record<OptionRowId, boolean>>, options: { dllOverride?: Uint8Array } = {}): Promise<OptionRowId[]> {
+export async function reconcileOptionRows(project: ProjectState, want: Partial<Record<OptionRowId, boolean>>, options: { dllOverride?: Uint8Array; verifyExisting?: boolean } = {}): Promise<OptionRowId[]> {
   const version = optionRowsVersion(project);
   if (!version) return [];
   const rom = openRom(project);
@@ -144,10 +144,18 @@ export async function reconcileOptionRows(project: ProjectState, want: Partial<R
   const rows = ROW_ORDER.filter((id) => present(id) && (id !== "following" || followingOptionsDllPath(version)));
   const path = optionRowsDllPath(version);
   const followingPath = followingOptionsDllPath(version);
+  if (options.verifyExisting && state.installed) {
+    const installed = moduleBytes(project, rom, path)!;
+    const expected = configureOptionRowsDll(await loadBundledDll(version, options.dllOverride), state.rows);
+    if (installed.length !== expected.length || expected.some((byte, i) => byte !== installed[i])) {
+      throw new Error("The shared Options module could not be verified for removal of its Autorun row.");
+    }
+  }
   const sharedNeeded = rows.includes("autorun") || (rows.includes("following") && !state.followingModuleActive);
   if (!sharedNeeded) {
     if (state.installed) {
-      if (canRemoveStagedCodeInjectionDll(project, path)) removeStagedCodeInjectionDll(project, path);
+      if (options.verifyExisting) removeOwnedCodeInjectionFiles(project, [path], rom);
+      else if (canRemoveStagedCodeInjectionDll(project, path)) removeStagedCodeInjectionDll(project, path);
       else stageCodeInjectionDll(project, manifest.games[version].fileName, configureOptionRowsDll(await loadBundledDll(version, options.dllOverride), []), "patches", project.originalRomBytes);
     }
     return rows.includes("following") ? ["following"] : [];

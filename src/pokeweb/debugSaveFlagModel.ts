@@ -4,7 +4,7 @@ import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NintendoDSRom } from "../nds/rom";
 import { getRomFileBytes } from "./fileSystemModel";
-import { listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
+import { codeInjectionRemovalBlocker, listCodeInjectionDlls, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import { recordGenericChange } from "./actionChangelog";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import type { ProjectState } from "./projectStore";
@@ -50,7 +50,8 @@ export function configureDebugSaveFlag(rpm: RpmModule, version: Version, flag: n
   return writeRpm(rpm, { ident: "DLXF" });
 }
 export function getDebugSaveFlagStatus(project: ProjectState) {
-  const status = { supported:false, compatible:false, installed:false, flag:0,
+  const status: { supported: boolean; compatible: boolean; installed: boolean; flag: number; canUninstall: boolean; path?: string; message: string } = {
+    supported: false, compatible: false, installed: false, flag: 0, canUninstall: false,
     message:"Requires US revision-0 Black 2 or White 2." };
   const version = project.session.baseVersion;
   if (project.session.baseRom !== "BW2" || (version !== "B2" && version !== "W2") ||
@@ -79,13 +80,14 @@ export function getDebugSaveFlagStatus(project: ProjectState) {
       if (rpm && isDebugSaveFlagRuntime(rpm,version)) {
         if (entry.path.toLowerCase() !== `patches/${expected.fileName}`.toLowerCase())
           return {...status,message:`Move the debug module to patches/${expected.fileName}.`};
-        copies++; status.installed=true; status.flag=readU16(rpm.code,expected.configOffset+4);
+        copies++; status.installed=true; status.path=entry.path; status.flag=readU16(rpm.code,expected.configOffset+4);
       } else if (entry.fileName.toLowerCase()===expected.fileName.toLowerCase() || rpm?.relocations.some(({target:t,sourceSymbolIndex})=>{
         const n=t.type==="FULL_COPY"?rpm!.symbols[sourceSymbolIndex]?.size??0:t.type==="THUMB_BRANCH"?8:t.type==="THUMB_BRANCH_SAFESTACK"?16:4;
         return expected.signatures.some(s=>s.patchSize>0 && t.module===s.module && t.address<s.address+s.patchSize && t.address+n>s.address);
       })) return {...status,message:`Conflicting code injection module: ${entry.path}.`};
     }
     if (copies > 1) return {...status,message:"Remove duplicate debug flag modules."};
+    status.canUninstall = Boolean(status.path && !codeInjectionRemovalBlocker(project, rom, [status.path]));
     return {...status,compatible:true,message:status.installed?"Installed. Export the ROM to apply changes.":"Compatible. PMC is installed automatically."};
   } catch { return {...status,message:"Could not verify the native flag shortcut."}; }
 }
@@ -101,4 +103,12 @@ export async function installDebugSaveFlag(project: ProjectState, flag: number) 
   const result=stageCodeInjectionDll(project,manifest.games[version].fileName,configureDebugSaveFlag(rpm,version,flag));
   recordGenericChange(project,"code_injection",flag?`Debug shortcut toggles saved flag 0x${flag.toString(16)}.`:"Debug flag shortcut disabled.","Debug Save Flag",{key:"code-injection:debug-save-flag"});
   return result;
+}
+
+
+export function uninstallDebugSaveFlag(project: ProjectState): void {
+  const status = getDebugSaveFlagStatus(project);
+  if (!status.canUninstall || !status.path) throw new Error("The installed Debug Save Flag module could not be verified for removal.");
+  removeOwnedCodeInjectionFiles(project, [status.path]);
+  recordGenericChange(project, "code_injection", "Debug Save Flag shortcut removed.", "Debug Save Flag", { key: "code-injection:debug-save-flag" });
 }

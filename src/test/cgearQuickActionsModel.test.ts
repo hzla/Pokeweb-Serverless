@@ -647,11 +647,18 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     const exported = new NintendoDSRom(await exportModifiedRom(p));
     for(const id of [12,36,79]) expect(exported.loadArm9Overlays([id]).get(id)!.data).toEqual(original.loadArm9Overlays([id]).get(id)!.data);
     const reopened = makeProject(v,exported.data);
-    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({installed:true,enabled:false,compatible:true,canRemove:false});
+    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({installed:true,enabled:false,compatible:true,canRemove:true});
     await installCGearQuickActions(reopened);expect(getCGearQuickActionsStatus(reopened).enabled).toBe(true);
     expect(reopened.fileSystem!.replacements[exported.fileId(result.path)]).toBeDefined();
     expect(reopened.fileSystem!.replacements[exported.fileId(manifest.archivePath)]).toBeDefined();
     expect(Object.keys(reopened.fileSystem!.additions ?? {})).toHaveLength(0);
+    removeCGearQuickActions(reopened);
+    const stripped = new NintendoDSRom(await exportModifiedRom(reopened));
+    expect(stripped.filenames.idOf(result.path)).toBeUndefined();
+    expect(new NARC(stripped.getFileByName("a/2/8/7")).files).toEqual(new NARC(original.getFileByName("a/2/8/7")).files);
+    const strippedStatus = getCGearQuickActionsStatus(makeProject(v, stripped.data));
+    expect(strippedStatus.compatible, strippedStatus.message).toBe(true);
+    expect(strippedStatus).toMatchObject({ installed: false, enabled: false });
   });
   it("removes a staged installation and rejects conflicting hooks", async () => {
     const p = makeProject(v);assets();await installCGearQuickActions(p);removeCGearQuickActions(p);

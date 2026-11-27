@@ -1,7 +1,7 @@
 import {decodeAbilityRecipeBook} from "../pokeweb/abilityRecipeBook";
 import { describe,it,expect } from "vitest";
 import { validateAbilityRule,encodeAbilityRules,EMPTY_ABILITY_RULE,ABILITY_RULE_PRESETS } from "../pokeweb/abilityRules";
-import { buildAbilityRuleModule,inspectAbilityEffects,nextCustomAbilityId,clearAbilityRules,ABILITY_EFFECTS_DLL_PATH } from "../pokeweb/abilityEffectsModel";
+import { buildAbilityRuleModule,inspectAbilityEffects,nextCustomAbilityId,clearAbilityRules,ABILITY_EFFECTS_DLL_PATH,CURRENT_ABILITY_RUNTIME_VERSION } from "../pokeweb/abilityEffectsModel";
 import { NATIVE_ABILITY_PROFILES } from "../pokeweb/abilityNativeRuntime";
 import { readU16, readU32, writeU32 } from "../nds/binary";
 import { writeRpm } from "../pokeweb/rpm";
@@ -34,7 +34,7 @@ describe("composable ability rules",()=>{
    { kind:"attack",value:1.5,conditions:{kind:"hp",comparison:"lte",percent:50} },
    { kind:"defense",value:2 },
   ] });
-  const bytes = encodeAbilityRules(new Map([[165,rules]]), true, () => [0x3b]);
+  const bytes = encodeAbilityRules(new Map([[165,rules]]), true, { effectEvents: () => [0x3b] });
   const record = readU16(bytes,165 * 2), effectIndex = record + 4 + bytes[record+1] * 4 + 48;
   const conditionAt = record + readU16(bytes,effectIndex);
   expect(bytes[record+2]).toBe(1);
@@ -84,7 +84,7 @@ describe("composable ability rules",()=>{
   expect(readU32(module.code,reader!.address)).toBe(context.resolver.resolve("BattleMon_GetStatStagePtr").address | 1);
   expect(() => buildAbilityDll(context,entries,{statStageConditions:false})).toThrow(/stat stage conditions/iu);
   project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(module,{ident:"DLXF"})}};
-  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,rules:entries,runtimeVersion:20});
+  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,rules:entries,runtimeVersion:CURRENT_ABILITY_RUNTIME_VERSION});
  });
  it("reopens a version 19 per-effect recipe and keeps the original code bundle", () => {
   const {project} = makeItemEffectsProject(0,0,true,true);

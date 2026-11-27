@@ -8,17 +8,21 @@ type RecipeEncodingOptions = {
     usesLocalConditions: boolean;
     battleMessages: boolean;
     formConversion: boolean;
+    alignRuleRecords: boolean;
 };
 
 /** Pack the rules the battle runtime will execute. */
 export function encodeAbilityExecutableRules(
     entries: ReadonlyMap<number, AbilityRuleSet>,
     profiles: NativeAbilityProfile[],
-    { compactExecution, usesLocalConditions, battleMessages, formConversion }: RecipeEncodingOptions,
+    { compactExecution, usesLocalConditions, battleMessages, formConversion, alignRuleRecords }: RecipeEncodingOptions,
 ): Uint8Array {
-    return encodeAbilityRules(entries, compactExecution, usesLocalConditions
-        ? effect => abilityRuleEvents({ effects: [effect], conditions: EMPTY_ABILITY_RULE.conditions }, profiles, battleMessages, formConversion)
-        : undefined);
+    return encodeAbilityRules(entries, compactExecution, {
+        effectEvents: usesLocalConditions
+            ? effect => abilityRuleEvents({ effects: [effect], conditions: EMPTY_ABILITY_RULE.conditions }, profiles, battleMessages, formConversion)
+            : undefined,
+        alignRecords: alignRuleRecords,
+    });
 }
 
 /** Save the authored recipes so the editor can recover them when the DLL is reopened. */

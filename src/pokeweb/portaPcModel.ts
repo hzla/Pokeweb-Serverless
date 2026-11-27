@@ -5,8 +5,8 @@ import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import {
-  canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc,
-  listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll,
+  codeInjectionRemovalBlocker, getPmcInstallStatus, installBundledPmc,
+  listCodeInjectionDlls, removeOwnedCodeInjectionFiles, stageCodeInjectionDll,
   type CodeInjectionDllInstallResult,
 } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
@@ -57,7 +57,7 @@ export function getPortaPcStatus(project: ProjectState): PortaPcStatus {
   const layout = LAYOUTS[version];
   let rom: NintendoDSRom | undefined;
   try {
-    if (project.originalRomBytes) rom = new NintendoDSRom(project.originalRomBytes);
+    if (project.originalRomBytes) rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
   } catch {
     return { ...status, supported: true, message: "Reload the ROM to check Porta PC compatibility." };
   }
@@ -86,7 +86,7 @@ export function getPortaPcStatus(project: ProjectState): PortaPcStatus {
   status.installed = installed.size > 0;
   status.dllPath = [...installed.keys()][0];
   status.updateAvailable = [...installed.values()].includes("legacy");
-  status.canUninstall = installed.size === 1 && canRemoveStagedCodeInjectionDll(project, status.dllPath!);
+  status.canUninstall = installed.size === 1 && !codeInjectionRemovalBlocker(project, rom, [status.dllPath!]);
   if (installed.size > 1 || conflicts.length) {
     status.message = installed.size > 1 ? "Multiple Porta PC DLLs are present. Remove the duplicate before installing."
       : `Conflicting field hooks or an unrecognized Porta PC DLL: ${conflicts.join(", ")}.`;
@@ -153,9 +153,9 @@ export async function installPortaPc(project: ProjectState): Promise<CodeInjecti
 
 export function uninstallPortaPc(project: ProjectState): void {
   const status = getPortaPcStatus(project);
-  if (!status.canUninstall || !status.dllPath) throw new Error("Only a Porta PC DLL staged in this project can be removed.");
-  removeStagedCodeInjectionDll(project, status.dllPath);
-  recordGenericChange(project, "code_injection", "Porta PC removed from the staged ROM changes.", "Porta PC", { key: "code-injection:porta-pc" });
+  if (!status.canUninstall || !status.dllPath) throw new Error("The installed Porta PC module could not be verified for removal.");
+  removeOwnedCodeInjectionFiles(project, [status.dllPath]);
+  recordGenericChange(project, "code_injection", "Porta PC removed.", "Porta PC", { key: "code-injection:porta-pc" });
 }
 
 function hookSignatures(layout: Layout): Signature[] {

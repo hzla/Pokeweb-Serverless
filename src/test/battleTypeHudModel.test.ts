@@ -102,10 +102,12 @@ describe("Battle HUD bundled installer", () => {
     const exported = new NintendoDSRom(await exportModifiedRom(p));
     deepStrictEqual(exported.getFileByName(`patches/TypeIcons${v}.dll`), dll(v));
     const reimported = project(v, exported.data);
-    expect(getBattleTypeHudStatus(reimported)).toMatchObject({ installed: true, compatible: true, canUninstall: false });
+    expect(getBattleTypeHudStatus(reimported)).toMatchObject({ installed: true, compatible: true, canUninstall: true });
     await installBattleTypeHud(reimported);
     expect(reimported.fileSystem?.additions?.[`patches/TypeIcons${v}.dll`]).toBeUndefined();
-    expect(() => uninstallBattleTypeHud(reimported)).toThrow(/staged/);
+    uninstallBattleTypeHud(reimported);
+    const stripped = new NintendoDSRom(await exportModifiedRom(reimported));
+    expect(stripped.filenames.idOf(`patches/TypeIcons${v}.dll`)).toBeUndefined();
     uninstallBattleTypeHud(p);
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: false, pmcInstalled: true });
   });
@@ -377,7 +379,7 @@ describe.each(["B", "W"] as const)("BW1 Type Icons candidate %s", { timeout: 200
     expect(changed).toEqual([165, 166, 168, 169, 171, 172, 174, 175]);
     expect(exported.loadArm9Overlays([94]).get(94)!.data).toEqual(original.loadArm9Overlays([94]).get(94)!.data);
     const reopened = project(v, exported.data);
-    expect(getBattleTypeHudStatus(reopened)).toMatchObject({ installed: true, compatible: true, iconVariant: variant, canUninstall: false });
+    expect(getBattleTypeHudStatus(reopened)).toMatchObject({ installed: true, compatible: true, iconVariant: variant, canUninstall: true });
     await installBattleTypeHud(reopened, variant);
     deepStrictEqual(reopened.fileSystem?.replacements[id], dll(v, variant));
     expect(reopened.fileSystem?.additions?.[`patches/TypeIcons${v}.dll`]).toBeUndefined();

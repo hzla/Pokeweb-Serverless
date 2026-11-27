@@ -1,10 +1,10 @@
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
-import { installCodeInjectionPatch } from "./codeInjectionInstall";
+import { installCodeInjectionPatch, uninstallCodeInjectionPatch } from "./codeInjectionInstall";
 import { getRomFileBytes } from "./fileSystemModel";
 import { getOverlayInfo, getOverlayWorkingBytes } from "./overlayEditModel";
-import { canRemoveStagedCodeInjectionDll, getPmcInstallStatus, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { codeInjectionRemovalBlocker, getPmcInstallStatus, listCodeInjectionDlls, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule, type RpmRelocation, type RpmSymbol } from "./rpm";
 
@@ -185,13 +185,21 @@ export function getBw1MartExpansionStatus(project: ProjectState): Bw1MartExpansi
   status.installed = data.expanded;
   status.fitsInPlace = data.shops.every((items, index) => items.length <= data.layout.lists[index]!.capacity)
     && data.bpShops.every((items, index) => items.length <= data.layout.bpLists[index]!.capacity);
-  status.canUninstall = data.expanded && Boolean(data.dllPath) && canRemoveStagedCodeInjectionDll(project, data.dllPath!);
+  status.canUninstall = data.expanded && canRestoreBw1MartLists(project, version, data);
   status.message = data.expanded
     ? status.canUninstall
       ? status.fitsInPlace ? "Every shop can hold 40 items." : "Every shop can hold 40 items. To remove the module, trim each shop back to its retail size first."
-      : "Every shop can hold 40 items. The module is part of the loaded ROM."
+      : "The installed mart module could not be verified for removal."
     : "Each shop holds at most its retail number of items. Expanding moves the lists into a code injection module so each can hold 40.";
   return status;
+}
+
+function canRestoreBw1MartLists(project: ProjectState, version: Bw1MartVersion, data: Bw1MartData): boolean {
+  const module = installedModule(project, version);
+  if (!module || data.shops.length !== data.layout.lists.length || data.bpShops.length !== data.layout.bpLists.length) return false;
+  const expected = buildBw1MartDll(version, data.layout, data.shops, data.bpShops);
+  return module.bytes.length === expected.length && expected.every((byte, i) => byte === module.bytes[i])
+    && !codeInjectionRemovalBlocker(project, openRom(project), [module.path]);
 }
 
 /** Move every list into the generated module (installs PMC first if needed). */
@@ -207,10 +215,10 @@ export async function enableBw1MartExpansion(project: ProjectState): Promise<voi
 
 /** Put every list back into overlay 21 and remove the module. */
 export async function disableBw1MartExpansion(project: ProjectState): Promise<void> {
-  await installCodeInjectionPatch(project, (staged) => {
+  await uninstallCodeInjectionPatch(project, (staged) => {
     const data = readBw1Marts(staged);
     if (!data.expanded || !data.dllPath) return;
-    if (!canRemoveStagedCodeInjectionDll(staged, data.dllPath)) throw new Error("The mart module is part of the loaded ROM and cannot be removed.");
+    if (!canRestoreBw1MartLists(staged, staged.session.baseVersion as Bw1MartVersion, data)) throw new Error("The installed mart module could not be verified for removal.");
     for (const [index, items] of data.shops.entries()) {
       const capacity = data.layout.lists[index]!.capacity;
       if (items.length > capacity) throw new Error(`${bw1MartLabel(data, index)} has ${items.length} items; it holds ${capacity} without expansion.`);
@@ -221,7 +229,7 @@ export async function disableBw1MartExpansion(project: ProjectState): Promise<vo
       if (items.length > capacity) throw new Error(`${bw1MartLabel(data, martId)} has ${items.length} items; it holds ${capacity} without expansion.`);
     }
     writeInPlace(staged, data);
-    removeStagedCodeInjectionDll(staged, data.dllPath);
+    removeOwnedCodeInjectionFiles(staged, [data.dllPath], openRom(staged));
     recordGenericChange(staged, "marts", "Expanded mart inventories removed; the lists are back in overlay 21.", "Marts", { key: "marts:bw1-expansion" });
   });
 }

@@ -29,7 +29,16 @@ export async function withProjectMutationLock<T>(project: ProjectState, action: 
 }
 
 /** Stage a page installation and its dependencies together; publish only success. */
-export async function installCodeInjectionPatch<T>(project: ProjectState, install: (staged: ProjectState) => T | Promise<T>): Promise<T> {
+export function installCodeInjectionPatch<T>(project: ProjectState, install: (staged: ProjectState) => T | Promise<T>): Promise<T> {
+  return stageCodeInjectionChange(project, install, true);
+}
+
+/** Stage a removal transaction without adding or upgrading the shared loader. */
+export function uninstallCodeInjectionPatch<T>(project: ProjectState, uninstall: (staged: ProjectState) => T | Promise<T>): Promise<T> {
+  return stageCodeInjectionChange(project, uninstall, false);
+}
+
+function stageCodeInjectionChange<T>(project: ProjectState, change: (staged: ProjectState) => T | Promise<T>, ensurePmc: boolean): Promise<T> {
   return withProjectMutationLock(project, async () => {
     const keys = ["arm9", "overlays", "narcs", "texts", "fileSystem", "codeInjection", "patches", "actionChangelog",
       "koMoveLearnsetSource", "pwanAnimations", "trainerPwanAnimations", "overworldWeather", "cgearButtons", "customUi", "flyDestinations"] as const;
@@ -37,12 +46,12 @@ export async function installCodeInjectionPatch<T>(project: ProjectState, instal
     const staged: ProjectState = { ...project };
     for (const key of keys) Object.assign(staged, { [key]: structuredClone(project[key]) });
     staged.originalRomBytes ??= await loadActiveRomBytes();
-    if (!staged.originalRomBytes) throw new Error("Reload the ROM before installing code injection patches.");
-    if (!getPmcInstallStatus(staged).installed) {
+    if (!staged.originalRomBytes) throw new Error("Reload the ROM before changing code injection patches.");
+    if (ensurePmc && !getPmcInstallStatus(staged).installed) {
       adoptExistingPmcInstall(staged, staged.originalRomBytes);
       if (!getPmcInstallStatus(staged).installed) await installBundledPmc(staged);
     }
-    const result = await install(staged);
+    const result = await change(staged);
     for (const key of keys) Object.assign(project, { [key]: staged[key] });
     project.arm9Dirty = staged.arm9Dirty;
     project.originalRomBytes = staged.originalRomBytes;

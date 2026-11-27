@@ -5,9 +5,9 @@ import { recordGenericChange } from "./actionChangelog";
 import { withProjectMutationLock } from "./codeInjectionInstall";
 import { getRomFileBytes } from "./fileSystemModel";
 import {
-  canRemoveStagedCodeInjectionDll,
+  codeInjectionRemovalBlocker,
   listCodeInjectionDlls,
-  removeStagedCodeInjectionDll,
+  removeOwnedCodeInjectionFiles,
   stageCodeInjectionDll,
 } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
@@ -90,10 +90,10 @@ export function getRotationBattleAiStatus(project: ProjectState): Status {
         // A reserved filename still conflicts if its module cannot be read.
       }
       if (rpm && isRotationAi(rpm, game) && entry.target === "patches") {
-        if (state.path) throw new Error("Multiple Rotation Battle AI modules are installed.");
+        if (state.path) return { ...state, canUninstall: false, message: "Multiple Rotation Battle AI modules are installed." };
         state.path = entry.path;
         state.installed = true;
-        state.canUninstall = canRemoveStagedCodeInjectionDll(project, entry.path);
+        state.canUninstall = !codeInjectionRemovalBlocker(project, rom, [entry.path]);
         continue;
       }
       if (entry.fileName.toLowerCase() === profile.fileName.toLowerCase() || (rpm && overlapsNativeCode(rpm, game))) {
@@ -153,8 +153,8 @@ export async function stageRotationBattleAi(project: ProjectState): Promise<void
 export async function uninstallRotationBattleAi(project: ProjectState): Promise<void> {
   await withProjectMutationLock(project, () => {
     const state = getRotationBattleAiStatus(project);
-    if (!state.path || !state.canUninstall) throw new Error("Only a staged Rotation Battle AI module can be removed.");
-    removeStagedCodeInjectionDll(project, state.path);
-    recordGenericChange(project, "code_injection", "Rotation Battle AI removed from staged changes.", TITLE, { key: CHANGE_KEY });
+    if (!state.path || !state.canUninstall) throw new Error("The installed Rotation Battle AI module could not be verified for removal.");
+    removeOwnedCodeInjectionFiles(project, [state.path]);
+    recordGenericChange(project, "code_injection", "Rotation Battle AI removed.", TITLE, { key: CHANGE_KEY });
   });
 }

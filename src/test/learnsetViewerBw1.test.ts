@@ -57,10 +57,13 @@ for (const game of ["B", "W"] as const) describe(`BW1 Learnset ${game}`, () => {
     const info = p.codeInjection!.learnsetViewer!.infoMessageIds![0];
     getTextBank(p, "message_texts", 204)[info][1] = "Private title {0}"; commitTextBank(p, "message_texts", 204);
     const bytes = await exportModifiedRom(p), reopened = fixture(game, bytes), rom = new NintendoDSRom(bytes);
-    expect(getLearnsetViewerStatus(reopened)).toMatchObject({ installed: true, compatible: true, canUninstall: false, updateAvailable: false, messageIds: ids });
+    expect(getLearnsetViewerStatus(reopened)).toMatchObject({ installed: true, compatible: true, canUninstall: true, updateAvailable: false, messageIds: ids });
     await installLearnsetViewer(reopened);
     for (const path of learnsetViewerPaths(game)) expect(reopened.fileSystem!.replacements[rom.fileId(path)]).toBeDefined();
     expect(getTextBank(reopened, "message_texts", 204)[info][1]).toBe("Private title {0}");
+    uninstallLearnsetViewer(reopened);
+    const stripped = new NintendoDSRom(await exportModifiedRom(reopened));
+    for (const path of learnsetViewerPaths(game)) expect(stripped.filenames.idOf(path)).toBeUndefined();
   });
   it("keeps Classic selectable and preserves edited Three Cards artwork across exports", async () => {
     const p = fixture(game), path = LEARNSET_THREE_CARDS_ART_PATH;

@@ -6,10 +6,11 @@ import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { sha256Hex } from "../nds/sha256";
 import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
-import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, codeInjectionRemovalBlocker, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
@@ -139,7 +140,7 @@ function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
   return r.target.type === "FULL_COPY" ? rpm.symbols[r.sourceSymbolIndex]?.size ?? 0
     : r.target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : r.target.type === "THUMB_BRANCH" ? 12 : 4;
 }
-function codeFingerprint(code: Uint8Array): string {
+function configurationRanges(code: Uint8Array): [number, number][] {
   const ranges: [number, number][] = [];
   const config = configOffset(code); ranges.push([config + 10, config + 24]);
   const customMarker = new TextEncoder().encode("PWUICFG1");
@@ -151,6 +152,10 @@ function codeFingerprint(code: Uint8Array): string {
   if (code.some((b, i) => b === infoMarker[0] && infoMarker.every((v, j) => code[i + j] === v))) {
     const info = infoConfigOffset(code); ranges.push([info + 12, info + 12 + infoMessages.length * 4]);
   }
+  return ranges;
+}
+function codeFingerprint(code: Uint8Array): string {
+  const ranges = configurationRanges(code);
   let value = 0x811c9dc5;
   for (let i = 0; i < code.length; ++i) value = Math.imul(value ^ (ranges.some(([start, end]) => i >= start && i < end) ? 0 : code[i]!), 0x1000193) >>> 0;
   return value.toString(16).padStart(8, "0");
@@ -168,6 +173,22 @@ function recognizedModule(rpm: RpmModule, version: Version, group: Group): boole
   const profile = manifest.games[version];
   const build = rpm.metadata.PMCVersion === profile.version ? profile.modules?.[group] : profile.previousBuilds?.[String(rpm.metadata.PMCVersion)]?.[group];
   return !!build && rpm.metadata.PMCGameID === version && rpm.metadata.PMCModulePriority === 4 && matchesBuild(rpm, build);
+}
+// Complete BW2 bundle hashes with installer-owned configuration fields cleared.
+const BW2_REMOVAL_HASHES = {
+  B2: { Menu: "cfb4ac8cc38914b419587c8b90516d714adae00b89468e45a5c190d990fcf1d1",
+    Viewer: "ff07c7ff2c0f712e659467dcacc61682f6d5fdc1f34b8bfeefe7d69d7ddb2722" },
+  W2: { Menu: "366d2c33e4a6d861880079cc31f52ab6582189117af2be3c11a7c22f2a51d3c8",
+    Viewer: "e794754e02c4626a6850778d2ac75e5ca6c0cd3f6b17825dc968c4cd6b89ce69" },
+};
+function recognizedForRemoval(bytes: Uint8Array, version: Version, group: Group): boolean {
+  try {
+    if (!readConfiguration(bytes)) return false;
+    if (version === "B" || version === "W") return recognizedModule(parseRpm(bytes, { allowedMagics: ["DLXF"] }), version, group);
+    const normalized = bytes.slice();
+    for (const [start, end] of configurationRanges(bytes)) normalized.fill(0, start, end);
+    return sha256Hex(normalized) === BW2_REMOVAL_HASHES[version][group];
+  } catch { return false; }
 }
 function validModule(rpm: RpmModule, version: Version, group: Group) {
   const profile = manifest.games[version];
@@ -204,8 +225,12 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
   const sharedMenu = moduleBytes(project, rom, paths[0]);
   if (sharedMenu && readCustomUiConfig(sharedMenu)?.learnsetEnabled === false) status.installed = false;
   status.partial = installed.length === 1;
-  status.canUninstall = installed.length > 0 && installed.every(m => canRemoveStagedCodeInjectionDll(project, m.path));
-  if (sharedMenu && readCustomUiConfig(sharedMenu)?.enabled) status.canUninstall = false;
+  status.canUninstall = installed.length > 0 && installed.every(({ path }) => {
+    const data = moduleBytes(project, rom, path);
+    return !!data && (canRemoveStagedCodeInjectionDll(project, path)
+      || recognizedForRemoval(data, version, path === paths[0] ? "Menu" : "Viewer"));
+  }) && !codeInjectionRemovalBlocker(project, rom, installed.map(m => m.path));
+  if (project.customUi?.installation?.enabled || (sharedMenu && readCustomUiConfig(sharedMenu)?.enabled)) status.canUninstall = false;
   if (pokenavDependency(project, rom)) status.canUninstall = false;
   const pmc = getPmcInstallStatus(project);
   if (pmc.installed && pmc.overlayId !== (isBw1(version) ? 237 : 344)) return { ...status,
@@ -382,12 +407,12 @@ export function uninstallLearnsetViewer(project: ProjectState): void {
   if (pokenavDependency(project, rom)) throw new Error("Pokenav shares these runtime modules. Disable Pokenav before removing the shared runtime.");
   if (project.customUi?.installation?.enabled) throw new Error("Custom UI shares these runtime modules. Disable Custom UI before removing the shared runtime.");
   const status = getLearnsetViewerStatus(project);
-  if (!status.canUninstall) throw new Error("Only staged Learnset companions can be removed. DLLs built into the loaded ROM cannot yet be deleted.");
+  if (!status.canUninstall) throw new Error("The installed Learnset modules could not be verified for removal.");
   const paths = learnsetViewerPaths(project.session.baseVersion as Version);
-  for (const path of paths) if (canRemoveStagedCodeInjectionDll(project, path)) removeStagedCodeInjectionDll(project, path);
+  removeOwnedCodeInjectionFiles(project, paths.filter(path => listCodeInjectionDlls(project).some(m => m.path === path)), rom);
   // Retain private ID assignments alongside retained text so reinstall also
   // preserves user-edited messages that no longer match the default strings.
-  recordGenericChange(project, "code_injection", "Staged Learnset companions removed; private text entries retained for reinstall.", "Learnset Viewer", { key: "code-injection:learnset-viewer" });
+  recordGenericChange(project, "code_injection", "Learnset companions removed. Private text entries were retained for reinstall.", "Learnset Viewer", { key: "code-injection:learnset-viewer" });
 }
 function hex(bytes: Uint8Array): string { return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join(""); }
 async function sha256(bytes: Uint8Array): Promise<string> { return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)))); }

@@ -13,8 +13,8 @@ import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, getRomFileBytes, replaceRomFile } from "./fileSystemModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { loadActiveRomBytes } from "./persistence";
-import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installPmcBytes,
-  listCodeInjectionDlls, loadBundledPmcBytes, removeStagedCodeInjectionDll, stageCodeInjectionDll,
+import { adoptExistingPmcInstall, codeInjectionRemovalBlocker, getPmcInstallStatus, installPmcBytes,
+  listCodeInjectionDlls, loadBundledPmcBytes, removeOwnedCodeInjectionFiles, stageCodeInjectionDll,
   installBundledBgmToggleDll, assertBundledBgmRuntimeCompatibility,
   type CodeInjectionDllInstallResult } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
@@ -37,6 +37,7 @@ export type CGearQuickActionsOptions = { pcHideFlag?: number; applySystemShops?:
 export type CGearQuickActionsStatus = {
   supported: boolean; compatible: boolean; installed: boolean; enabled: boolean;
   pmcInstalled: boolean; updateAvailable: boolean; canRemove: boolean; pcHideFlag: number; dllPath?: string; message: string;
+  fieldPaths?: string[];
   romProfile?: "retail" | "redux";
   runtimeVersion?: string;
 };
@@ -179,6 +180,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
   state.romProfile = redux ? "redux" : "retail";
   state.runtimeVersion = targetVersion;
   const owned: string[] = [];
+  const fieldPaths: string[] = [];
   for (const entry of listCodeInjectionDlls(project)) {
     let rpm: RpmModule | undefined;
     let bytes: Uint8Array | undefined;
@@ -186,7 +188,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     if (!bytes && !redux && entry.path === `patches/${uiFieldCompanion(profile)?.fileName}`) continue;
     if (!redux && rpm && [manifest, ...manifest.previousVersions].some(bundle =>
       entry.path === `patches/${uiFieldCompanion(bundle.games[v])?.fileName}`
-      && matchesUiFieldCompanion(rpm!, bundle.games[v], v, bundle.version))) continue;
+      && matchesUiFieldCompanion(rpm!, bundle.games[v], v, bundle.version))) { fieldPaths.push(entry.path); continue; }
     if (redux && entry.target === "patches" && entry.path === redux.path && rpm && isReduxRepel(rpm)) continue;
     if (entry.target === "patches" && rpm && recognized(rpm, v)) {
       if (String(rpm.metadata.PMCVersion).endsWith("-redux") && !redux) return { ...state, installed: true,
@@ -205,9 +207,6 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     if (!bytes || !matchesUiFieldCompanion(parseRpm(bytes, { allowedMagics: ["DLXF"] }), profile, v, manifest.version)) state.updateAvailable = true;
   }
 
-  state.canRemove = Boolean(state.dllPath && canRemoveStagedCodeInjectionDll(project, state.dllPath)
-    && project.fileSystem?.additions?.[manifest.archivePath]
-    && (!field || canRemoveStagedCodeInjectionDll(project, `patches/${field.fileName}`)));
   const archive = bytesAt(project, rom, manifest.archivePath);
   if (archive) {
     try {
@@ -242,6 +241,13 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     }
   } catch (e) {return { ...state, message: e instanceof Error ? e.message : "Could not read native C-Gear resources. Reload the ROM before installing." };}
   state.compatible = true;
+  if (state.dllPath && archive && fieldPaths.length <= 1) {
+    const embedded = rom.filenames.idOf(manifest.archivePath) !== undefined;
+    const verifiableGraphics = Boolean(new NARC(archive).files[14]);
+    state.fieldPaths = fieldPaths;
+    const paths = [state.dllPath, ...fieldPaths, ...(embedded ? [] : [manifest.archivePath])];
+    state.canRemove = (!embedded || verifiableGraphics) && !codeInjectionRemovalBlocker(project, rom, paths);
+  }
   state.message = state.updateAvailable ? `Quick Actions update ${targetVersion} is available. Choose Update / Enable to install the fixes.`
     : state.installed ? state.enabled ? "Quick Actions is enabled. The wrench also rearranges custom buttons, including with wireless off."
     : redux ? "Quick Actions is disabled. Redux's own Repel toggle remains available."
@@ -432,14 +438,22 @@ export function disableCGearQuickActions(project: ProjectState): void {
   recordGenericChange(project, "code_injection", "C-Gear Quick Actions disabled; saved preferences remain dormant.", "C-Gear Quick Actions", { key: "code-injection:cgear-quick-actions" });
 }
 export function removeCGearQuickActions(project: ProjectState): void {
-  if(project.session.baseRom==="BW"){removeBw1CGear(project);return;}
+  if (project.session.baseRom === "BW") { removeBw1CGear(project); return; }
   const status = getCGearQuickActionsStatus(project);
-  if (!status.canRemove || !status.dllPath) throw new Error("Only a Quick Actions runtime staged in this project can be removed. Use Disable for an exported installation.");
-  if(project.originalRomBytes){const rom=new NintendoDSRom(project.originalRomBytes,{fileData:"view"}),prior=bytesAt(project,rom,manifest.archivePath);if(prior)restoreNativeButtonGraphics(project,rom,prior);}
-  const field = status.romProfile !== "redux" && uiFieldCompanion(manifest.games[project.session.baseVersion as Version]);
-  if (field && canRemoveStagedCodeInjectionDll(project, `patches/${field.fileName}`)) removeStagedCodeInjectionDll(project, `patches/${field.fileName}`);
-  removeStagedCodeInjectionDll(project, status.dllPath);
-  if(project.cgearButtons){project.cgearButtons.enabled=false;project.cgearButtons.applied=undefined;}
-  if (project.fileSystem?.additions?.[manifest.archivePath]) delete project.fileSystem.additions[manifest.archivePath];
-  recordGenericChange(project, "code_injection", "Staged C-Gear Quick Actions removed.", "C-Gear Quick Actions", { key: "code-injection:cgear-quick-actions" });
+  if (!status.canRemove || !status.dllPath || !project.originalRomBytes) {
+    throw new Error("The installed C-Gear modules and native graphics could not be verified for removal.");
+  }
+  const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+  const prior = bytesAt(project, rom, manifest.archivePath)!;
+  const embedded = rom.filenames.idOf(manifest.archivePath) !== undefined;
+  const staged = cloneInstallState(project);
+  restoreNativeButtonGraphics(staged, rom, prior);
+  if (embedded) stageArchive(staged, rom, disableButtonArchive(prior));
+  removeOwnedCodeInjectionFiles(staged, [status.dllPath, ...(status.fieldPaths ?? []), ...(embedded ? [] : [manifest.archivePath])], rom);
+  if (project.cgearButtons) {
+    project.cgearButtons.enabled = false;
+    if (!embedded) project.cgearButtons.applied = undefined;
+  }
+  recordGenericChange(staged, "code_injection", "C-Gear Quick Actions removed.", "C-Gear Quick Actions", { key: "code-injection:cgear-quick-actions" });
+  Object.assign(project, { fileSystem: staged.fileSystem, codeInjection: staged.codeInjection, actionChangelog: staged.actionChangelog });
 }

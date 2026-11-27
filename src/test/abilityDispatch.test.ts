@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readU32 } from "../nds/binary";
+import { readU16, readU32 } from "../nds/binary";
 import { abilityRuleEvents } from "../pokeweb/abilityEvents";
+import { buildAbilityDll } from "../pokeweb/abilityDllBuilder";
 import { NATIVE_ABILITY_PROFILES } from "../pokeweb/abilityNativeRuntime";
+import { getAbilityRuntimeContext } from "../pokeweb/abilityRuntimeContext";
 import { ABILITY_IMPORT_LIBRARY } from "../pokeweb/abilityLibrary";
 import { EMPTY_ABILITY_RULE, validateAbilityRule, type AbilityRuleEffect } from "../pokeweb/abilityRules";
 import { CURRENT_ABILITY_RUNTIME_VERSION, ABILITY_EFFECTS_DLL_PATH, buildAbilityRuleModule, inspectAbilityEffects, upgradeAbilityRuntime } from "../pokeweb/abilityEffectsModel";
@@ -42,6 +44,30 @@ describe("filtered ability dispatch", () => {
     expect(events({ kind: "nativeAbility:22", value: -1 })).toEqual([0x55, 0x8a]);
     expect(events({ kind: "nativeAbility:143", value: -1 })).toEqual([0x4b]);
     expect(events({ kind: "nativeAbility:42", value: -1 })).toEqual([0x0c, 0x55, 0x8a]);
+  });
+  it("aligns copied callback pointers after local event lists and still verifies older DLLs", () => {
+    const { project } = makeItemEffectsProject(0, 0, true, true);
+    const conditioned = rule({ kind: "attack", value: 1.5, conditions: { kind: "hp", comparison: "lte", percent: 50 } });
+    const mixed = rule({ kind: "nativeAbility:22", value: -1 }, { kind: "abilityRecipe:statAction", value: 1 });
+    const rules = new Map([[165, conditioned], [166, mixed], [167, mixed]]);
+    const old = buildAbilityDll(getAbilityRuntimeContext(project), rules, { alignRuleRecords: false });
+    const current = buildAbilityRuleModule(project, rules);
+
+    for (const [dll, version] of [[old, 20], [current, CURRENT_ABILITY_RUNTIME_VERSION]] as const) {
+      const ruleDataPointer = dll.symbols.find(s => s.name === "AbilityRuleData")!.address;
+      const ruleData = dll.relocations.find(r => r.target.module === "base" && r.target.address === ruleDataPointer)!;
+      const base = dll.symbols[ruleData.sourceSymbolIndex].address;
+      const offset = readU16(dll.code, base + 166 * 2);
+      expect(readU16(dll.code, base + 167 * 2)).toBe(offset);
+      const record = base + offset;
+      const callbackPointer = record + 4 + dll.code[record + 1] * 4 + 8;
+      const callbackTable = dll.relocations.find(r => r.target.module === "base" && r.target.address === callbackPointer)!;
+      const table = dll.symbols[callbackTable.sourceSymbolIndex].address;
+      expect([readU32(dll.code, table), readU32(dll.code, table + 8)]).toEqual([0x55, 0x8a]);
+      expect(callbackPointer % 4).toBe(version === 20 ? 3 : 0);
+      project.fileSystem = { additions: { [ABILITY_EFFECTS_DLL_PATH]: writeRpm(dll, { ident: "DLXF" }) }, replacements: {} };
+      expect(inspectAbilityEffects(project)).toMatchObject({ editable: true, rules, runtimeVersion: version });
+    }
   });
   it.each(["base", "priority", "library", "recipes", "client", "weather", "scoped", "actions"])("recognizes the old %s DLL and produces an optimized replacement", name => {
     const { project } = makeItemEffectsProject(0, 0, true, true);

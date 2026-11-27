@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readU16, writeU16, writeU32 } from "../nds/binary";
-import { Folder } from "../nds/fnt";
+import { addFilePath, Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import manifest from "../assets/codeinjection/learnsetViewerManifest.json";
 import { configureLearnsetViewerDll as configureBase, configureLearnsetInfoDll, LEARNSET_INFO_MESSAGES, getLearnsetViewerStatus, learnsetViewerPaths, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
@@ -18,6 +18,26 @@ function configureLearnsetViewerDll(bytes: Uint8Array, ids: { menu: number; empt
 
 describe("standalone LEARNSET companions", () => {
   for (const version of ["W2", "B2"] as const) {
+    it(`${version}: removes a verified embedded pair and rejects altered bytes`, () => {
+      const project = fixture(version);
+      const rom = new NintendoDSRom(project.originalRomBytes!);
+      const paths = learnsetViewerPaths(version);
+      for (const [index, group] of ["Menu", "Viewer"].entries()) {
+        rom.filenames = addFilePath(rom.filenames, paths[index]!, rom.files.length);
+        rom.files.push(configureLearnsetViewerDll(assets[`Learnset${group}${version}`]!, { menu: 1, empty: 2, error: 3 }));
+      }
+      project.originalRomBytes = rom.save({ filenames: rom.filenames });
+      expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, canUninstall: true });
+      const id = rom.fileId(paths[1]!);
+      const damaged = rom.files[id].slice();
+      damaged[damaged.length - 1] ^= 1;
+      project.fileSystem!.replacements[id] = damaged;
+      expect(getLearnsetViewerStatus(project).canUninstall).toBe(false);
+      expect(() => uninstallLearnsetViewer(project)).toThrow(/could not be verified/u);
+      delete project.fileSystem!.replacements[id];
+      uninstallLearnsetViewer(project);
+      expect(getLearnsetViewerStatus(project).installed).toBe(false);
+    });
     it(`${version}: distinguishes a custom-only shared runtime from LEARNSET`, () => {
       const project = fixture(version);
       for (const group of ["Menu", "Viewer"]) {

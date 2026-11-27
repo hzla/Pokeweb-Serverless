@@ -53,10 +53,11 @@ describe.each(versions)("Porta PC %s", (version) => {
     expect(exported.getFileByName(result.path)).toEqual(assets[result.fileName]);
     for (const id of [12, 36]) expect(exported.loadArm9Overlays([id]).get(id)!.data).toEqual(original.loadArm9Overlays([id]).get(id)!.data);
     const reimported = makeProject(version, exported.data);
-    expect(getPortaPcStatus(reimported)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, canUninstall: false });
+    expect(getPortaPcStatus(reimported)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, canUninstall: true });
     await installPortaPc(reimported);
     expect(reimported.fileSystem?.additions?.[result.path]).toBeUndefined();
-    expect(() => uninstallPortaPc(reimported)).toThrow(/staged/u);
+    uninstallPortaPc(reimported);
+    expect(new NintendoDSRom(await exportModifiedRom(reimported)).filenames.idOf(result.path)).toBeUndefined();
   });
 
   it("replaces the original ButtonScript in place without adding another DLL", async () => {

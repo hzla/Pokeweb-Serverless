@@ -6,15 +6,15 @@ import reduxManifest from "../assets/codeinjection/battleTypeHudReduxManifest.js
 import { readU32, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
-import { reserveFilePath } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { sha256Hex } from "../nds/sha256";
 import { localizedAssetVariant } from "./translationAssets";
 import { recordGenericChange } from "./actionChangelog";
-import { getRomFileBytes, replaceNarcFile, setRomFileReplacement } from "./fileSystemModel";
+import { getRomFileBytes, replaceNarcFile } from "./fileSystemModel";
 import { battleTypeHudPanelExpansion, transformBattleTypeHudPanel } from "./battleTypeHudResources";
 import { loadActiveRomBytes } from "./persistence";
-import { canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { codeInjectionRemovalBlocker, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import { decompressNitro } from "./pokemonSpriteModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
@@ -181,7 +181,7 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     const moveBuild = knownBuild(rpm, v, "moves");
     const build = kind === "icons" ? iconBuild : moveBuild ?? (iconBuild === "0.2.0" ? iconBuild : undefined);
     if (build) {
-      if (status.installed) return { ...status, canUninstall: kind === "icons" && status.canUninstall,
+      if (status.installed) return { ...status, canUninstall: false,
         message: "Multiple Battle HUD DLLs are present. Remove the duplicate before installing." };
       status.installed = true; status.dllPath = entry.path; status.legacyCombined = iconBuild === "0.2.0";
       if (kind === "icons" && iconBuild) {
@@ -192,8 +192,8 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
       status.updateAvailable = kind === "icons"
         ? !Object.values(variants).some(variant => variant.version === build) && !Object.hasOwn(borderBuilds(v), build)
         : build !== profile.version;
-      status.canUninstall = !status.legacyCombined && (canRemoveStagedCodeInjectionDll(project, entry.path)
-        || (kind === "moves" && entry.target === "patches" && id !== undefined));
+      status.canUninstall = !status.legacyCombined && entry.target === "patches"
+        && (kind === "moves" || !!rom) && !codeInjectionRemovalBlocker(project, rom, [entry.path]);
       if (kind === "icons" && v === "W2" && (Object.hasOwn(reduxManifest.games.W2.builds, build) || build.endsWith("-redux")) && status.graphicsProfile !== "redux") {
         return { ...status, canUninstall: false, message: "The installed Redux DLL requires its verified graphics profile. Reload matching artwork before updating or removing it." };
       }
@@ -209,6 +209,10 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
       && r.target.address < h.address + 4 && r.target.address + hookSize(rpm, r) > h.address))) {
       return { ...status, message: `Battle HUD conflicts with ${entry.path}. A required battle hook is already claimed.` };
     }
+  }
+  if (rom && kind === "icons" && status.canUninstall) {
+    try { prepareIconRestoration(project, rom, profile, v, status.graphicsProfile === "redux"); }
+    catch (error) { return { ...status, canUninstall: false, message: (error as Error).message }; }
   }
   if (rom) {
     status.checked = true;
@@ -349,57 +353,46 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
     fileSystem: staged.fileSystem, codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
   return result;
 }
-export function uninstallBattleTypeHud(project: ProjectState): void {
-  const kind = "icons";
-  const status = getStatus(project, kind);
-  if (!status.canUninstall || !status.dllPath) throw new Error("Only a Battle HUD DLL staged in this project can be removed.");
-  // Prepare restoration first, so a modified extension cannot leave a partial
-  // uninstall. Other members of the battle archive are preserved.
+function prepareIconRestoration(project: ProjectState, rom: NintendoDSRom, profile: HudProfile, version: Version, redux: boolean) {
   const restored: { member: number; bytes: Uint8Array }[] = [];
-  const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes) : undefined;
-  const profile = profileFor(project.session.baseVersion as Version, kind);
-  const fileId = profile && rom?.filenames.idOf(profile.graphicsArchive);
-  if (rom && fileId !== undefined) {
-    const archive = new NARC(getRomFileBytes(project, rom, fileId));
-    const changes = status.graphicsProfile === "redux" ? reduxManifest.panelExpansion : battleTypeHudPanelExpansion;
-    for (const member of Object.keys(profile!.resources) as (keyof typeof battleTypeHudPanelExpansion)[]) {
-      const change = changes[member as keyof typeof changes];
-      const packed = archive.files[Number(member)];
-      if (!packed) continue;
-      const packedRaw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
-      const raw = stripTypeIconBorder(packedRaw, String(member), status.graphicsProfile === "redux");
-      if (!change) {
-        if (hex(raw) !== hex(packedRaw)) restored.push({ member: Number(member), bytes: raw });
-        continue;
-      }
-      // Original resources require no restoration (including earlier DLLs).
-      const changed = change.edits[0]!;
-      if (hex(raw.subarray(changed.offset, changed.offset + changed.new.length / 2)) !== changed.new) continue;
-      restored.push({ member: Number(member), bytes: transformBattleTypeHudPanel(raw, member, true, change) });
-    }
+  const fileId = rom.filenames.idOf(profile.graphicsArchive);
+  if (fileId === undefined) throw new Error("The Type Icons graphics archive is missing.");
+  const archive = new NARC(getRomFileBytes(project, rom, fileId));
+  for (const [member, retailDigest] of Object.entries(profile.resources)) {
+    const key = member as keyof typeof battleTypeHudPanelExpansion;
+    const change = redux ? reduxManifest.panelExpansion[key as keyof typeof reduxManifest.panelExpansion] : battleTypeHudPanelExpansion[key];
+    const packed = archive.files[Number(member)];
+    if (!packed) throw new Error(`Type Icons graphics member ${member} is missing.`);
+    const packedRaw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
+    const raw = stripTypeIconBorder(packedRaw, member, redux);
+    const hasBorder = raw.length !== packedRaw.length;
+    if (!change && !hasBorder) continue;
+    const isNative = (digest: string) => redux ? digest === reduxResources[member]?.nativeSha256
+      : digest === retailDigest || ((version === "B2" || version === "W2")
+        && digest === localizedAssetVariant(version, profile.graphicsArchive, Number(member), digest)?.nativeSha256);
+    const native = change && !isNative(sha256Hex(raw)) ? transformBattleTypeHudPanel(raw, key, true, change) : raw;
+    if (!isNative(sha256Hex(native))) throw new Error(`Type Icons graphics member ${member} could not be restored safely.`);
+    if (native !== raw || hasBorder) restored.push({ member: Number(member), bytes: native });
   }
-  removeStagedCodeInjectionDll(project, status.dllPath);
-  if (rom && fileId !== undefined) for (const edit of restored) replaceNarcFile(project, rom, fileId, edit.member, edit.bytes);
-  recordGenericChange(project, "code_injection", `Staged ${title(kind)} DLL removed.`, title(kind), { key: `code-injection:${kind}` });
+  return { fileId, restored };
+}
+
+export function uninstallBattleTypeHud(project: ProjectState): void {
+  const status = getStatus(project, "icons");
+  if (!status.canUninstall || !status.dllPath || !project.originalRomBytes) throw new Error("The installed Type Icons module and graphics could not be verified for removal.");
+  const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+  const version = project.session.baseVersion as Version;
+  const { fileId, restored } = prepareIconRestoration(project, rom, profileFor(version, "icons")!, version, status.graphicsProfile === "redux");
+  removeOwnedCodeInjectionFiles(project, [status.dllPath], rom);
+  for (const edit of restored) replaceNarcFile(project, rom, fileId, edit.member, edit.bytes);
+  recordGenericChange(project, "code_injection", "Type Icons removed.", title("icons"), { key: "code-injection:icons" });
 }
 
 export function uninstallMoveEffectiveness(project: ProjectState): void {
   const status = getStatus(project, "moves");
   const path = status.dllPath;
   if (!status.canUninstall || !path) throw new Error("Only a recognized standalone Move Effectiveness Preview DLL can be removed.");
-  const rom = project.originalRomBytes && new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
-  const fileId = rom ? rom.filenames.idOf(path) : undefined;
-  if (rom && fileId !== undefined) {
-    // Removing the DLL name from NitroFS while reserving its FAT slot preserves other file IDs.
-    reserveFilePath(rom.filenames, path, fileId);
-    if (canRemoveStagedCodeInjectionDll(project, path)) removeStagedCodeInjectionDll(project, path);
-    setRomFileReplacement(project, fileId, new Uint8Array());
-    (project.fileSystem!.tombstones ??= {})[fileId] = path;
-    if (project.codeInjection?.modules) project.codeInjection.modules = project.codeInjection.modules.filter(
-      module => module.path.toLowerCase() !== path.toLowerCase());
-  } else {
-    removeStagedCodeInjectionDll(project, path);
-  }
+  removeOwnedCodeInjectionFiles(project, [path]);
   recordGenericChange(project, "code_injection", "Move Effectiveness Preview removed.", title("moves"), { key: "code-injection:moves" });
 }
 

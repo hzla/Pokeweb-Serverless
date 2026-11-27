@@ -5,7 +5,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
-import { canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { codeInjectionRemovalBlocker, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeOwnedCodeInjectionFiles, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import walkRuntime from "../../runtime/debug-helpers/walk-through-walls-runtime.json";
@@ -57,7 +57,7 @@ export function getTestingPatchStatus(project: ProjectState, id: TestingPatchId)
   const status: TestingPatchStatus = { supported: false, compatible: false, installed: false, canUninstall: false, message: "Requires US White 2 (IRDO, revision 0)." };
   if (project.session.baseRom !== "BW2" || project.session.baseVersion !== "W2") return status;
   let rom: NintendoDSRom | undefined;
-  try { if (project.originalRomBytes) rom = new NintendoDSRom(project.originalRomBytes); }
+  try { if (project.originalRomBytes) rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" }); }
   catch { return { ...status, message: "Reload the ROM to check compatibility." }; }
   if ((rom?.idCode ?? project.romInfo.idCode) !== "IRDO" || (project.originalRomBytes && project.originalRomBytes[0x1e] !== 0)) return status;
   status.supported = true;
@@ -84,7 +84,7 @@ export function getTestingPatchStatus(project: ProjectState, id: TestingPatchId)
   }
   status.installed = installed.length > 0;
   status.dllPath = installed[0];
-  status.canUninstall = installed.length === 1 && canRemoveStagedCodeInjectionDll(project, installed[0]);
+  status.canUninstall = installed.length === 1 && !codeInjectionRemovalBlocker(project, rom, installed);
   if (installed.length > 1) return { ...status, message: "Remove the duplicate DLL before installing." };
   if (!rom) return { ...status, message: "Reload the ROM to check the native code before installation." };
   try {
@@ -123,8 +123,8 @@ export async function installTestingPatch(project: ProjectState, id: TestingPatc
 
 export function uninstallTestingPatch(project: ProjectState, id: TestingPatchId): void {
   const status = getTestingPatchStatus(project, id);
-  if (!status.canUninstall || !status.dllPath) throw new Error("Only a DLL staged in this project can be removed.");
-  removeStagedCodeInjectionDll(project, status.dllPath);
+  if (!status.canUninstall || !status.dllPath) throw new Error("The installed testing patch could not be verified for removal.");
+  removeOwnedCodeInjectionFiles(project, [status.dllPath]);
   const patch = TESTING_PATCHES[id];
   recordGenericChange(project, "code_injection", `${patch.title} removed.`, patch.title, { key: `code-injection:${id}` });
 }

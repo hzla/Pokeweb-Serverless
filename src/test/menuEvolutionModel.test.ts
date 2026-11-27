@@ -3,6 +3,8 @@ import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { readAscii, readU16 } from "../nds/binary";
+import { NARC } from "../nds/narc";
+import { addFilePath } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { EVO_METHODS } from "../pokeweb/constants";
 import { canUninstallBattleLog, getBattleLogInstallStatus, installBattleLog, uninstallBattleLog } from "../pokeweb/battleLogModel";
@@ -136,7 +138,7 @@ describe("BW2 Menu Evolution", () => {
   });
 
   it("appends reusable EVOLVE and RELEARN IDs and preserves them across companion uninstall", () => {
-    const project = makeProject("W2", true);
+    const project = makeProject("W2", false);
     const first = ensureEvolveMessage(project);
     const second = ensureEvolveMessage(project);
 
@@ -161,6 +163,28 @@ describe("BW2 Menu Evolution", () => {
     expect(project.codeInjection?.menuEvolution).toBeUndefined();
     expect(project.texts.messageTexts?.[MENU_EVOLUTION_MESSAGE_BANK_ID]?.some((entry) => entry[1] === "EVOLVE")).toBe(true);
     expect(project.texts.messageTexts?.[MENU_EVOLUTION_MESSAGE_BANK_ID]?.some((entry) => entry[1] === "RELEARN")).toBe(true);
+  });
+
+  it.each([["B2", menuEvolutionB2], ["W2", menuEvolutionW2]] as const)("removes the embedded %s companion and keeps private messages", async (game, bundle) => {
+    const project = makeProject(game, false);
+    const rom = new NintendoDSRom(new Uint8Array(0x200));
+    rom.data.set(new TextEncoder().encode(project.romInfo.idCode), 12);
+    const path = `patches/MenuEvolution${game}.dll`;
+    const evolve = ensureEvolveMessage(project);
+    const relearn = ensureRelearnMessage(project);
+    const messages = new NARC();
+    messages.files = project.narcs.message_texts!.rawFiles;
+    rom.files = [messages.save(), configureMenuEvolutionDll(bundle, evolve, relearn), new Uint8Array([42])];
+    rom.filenames = addFilePath(rom.filenames, "a/0/0/2", 0);
+    rom.filenames = addFilePath(rom.filenames, path, 1);
+    rom.filenames = addFilePath(rom.filenames, "patches/keep.bin", 2);
+    project.originalRomBytes = rom.save({ filenames: rom.filenames });
+    expect(canUninstallMenuEvolution(project)).toBe(true);
+    uninstallMenuEvolution(project);
+    const stripped = new NintendoDSRom(await exportModifiedRom(project));
+    expect(stripped.filenames.idOf(path)).toBeUndefined();
+    expect(stripped.getFileByName("patches/keep.bin")).toEqual(new Uint8Array([42]));
+    expect(project.texts.messageTexts![MENU_EVOLUTION_MESSAGE_BANK_ID]![evolve][1]).toBe("EVOLVE");
   });
 
   it("offers an update for the previous companion and recognizes configured 1.3.1 artifacts", () => {

@@ -8,6 +8,7 @@ import autorunManifest from "../assets/codeinjection/autorunManifest.json";
 import rowsManifest from "../assets/codeinjection/optionRowsManifest.json";
 import { getAutorunStatus, installAutorun, isAutorunModule, uninstallAutorun, type AutorunVersion } from "../pokeweb/autorunModel";
 import { followerRemovedModule } from "../pokeweb/followingPokemonProject";
+import { exportModifiedRom } from "../pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import {
   configureOptionRowsDll, followingOptionsStub, readOptionRowsState, readTable, reconcileOptionRows,
@@ -114,6 +115,13 @@ describe.each(GAMES)("Autorun install on %s", game => {
     const text = optionsText(project);
     expect(text[19]).toBe("AUTORUN");
     expect(text[29]).toMatch(/Running Shoes/u);
+    const reopenedBytes = await exportModifiedRom(project);
+    const reopened = await loadProjectFromRomBytes(reopenedBytes, "fixture.nds", { selectedNarcs: [] });
+    expect(getAutorunStatus(reopened).canUninstall).toBe(true);
+    await uninstallAutorun(reopened);
+    const stripped = new NintendoDSRom(await exportModifiedRom(reopened));
+    expect(stripped.filenames.idOf(`patches/Autorun${game}.dll`)).toBeUndefined();
+    expect(stripped.filenames.idOf(`patches/PokewebOptionRows${game}.dll`)).toBeUndefined();
     await uninstallAutorun(project);
     expect(listCodeInjectionDlls(project).some(entry => /Autorun|OptionRows/u.test(entry.fileName))).toBe(false);
     expect(optionsText(project)[19]).toBe(game === "B" || game === "W" ? "" : "    ");
