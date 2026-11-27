@@ -61,6 +61,7 @@ export type AbilityConditionSubject = typeof ABILITY_CONDITION_SUBJECTS[number];
 export type ItemRuleCondition =
   | { kind: "group"; mode: "all" | "any"; scope?: "anyOpponent"; children: ItemRuleCondition[] }
   | { kind: "hp"; comparison: "lt" | "lte" | "gt" | "gte"; percent: number }
+  | { kind: "statStage"; stat: number; comparison: StatStageComparison; stages: number }
   | { kind: "type" | "knowsMove"; value: number; negate?: boolean; subject?: AbilityConditionSubject }
   | { kind: "weather"; value: number; negate?: boolean }
   | { kind: "species" | "moveType" | "category" | "status"; value: number; negate?: boolean }
@@ -125,6 +126,9 @@ export function validateItemRule(input: ItemRuleSet, definitions: readonly ItemR
   return { effects, conditions: validateRuleConditions(input.conditions), consumable: input.consumable };
 }
 
+export const STAT_STAGE_COMPARISONS = ["lt", "lte", "gt", "gte", "eq"] as const;
+export type StatStageComparison = typeof STAT_STAGE_COMPARISONS[number];
+
 export function validateRuleConditions(input: ItemRuleCondition, ability = false): ItemRuleCondition {
   let nodes = 0;
   function condition(node: ItemRuleCondition, depth: number): ItemRuleCondition {
@@ -136,6 +140,13 @@ export function validateRuleConditions(input: ItemRuleCondition, ability = false
     }
     if (node.kind === "hp" && ["lt", "lte", "gt", "gte"].includes(node.comparison) && Number.isInteger(node.percent) && node.percent >= 0 && node.percent <= 100)
       return { kind: "hp", comparison: node.comparison, percent: node.percent };
+    if (node.kind === "statStage") {
+      if (!ability || !Number.isInteger(node.stat) || node.stat < 1 || node.stat > 7
+        || !STAT_STAGE_COMPARISONS.includes(node.comparison)
+        || !Number.isInteger(node.stages) || node.stages < -6 || node.stages > 6)
+        throw new Error("Choose an ability stat stage from −6 to +6.");
+      return { kind: "statStage", stat: node.stat, comparison: node.comparison, stages: node.stages };
+    }
     if (node.kind === "type" || node.kind === "knowsMove") {
       const subject = node.subject ?? "holder";
       if (node.subject !== undefined && (!ability || !ABILITY_CONDITION_SUBJECTS.includes(subject))
@@ -166,6 +177,7 @@ export function emitRuleCondition(node: ItemRuleCondition, emit: (op: number, ar
   } else if ((node.kind === "type" && node.subject) || node.kind === "knowsMove")
     emit(node.kind === "type" ? 10 : 11, (ABILITY_CONDITION_SUBJECTS.indexOf(node.subject ?? "holder") << 1) | Number(Boolean(node.negate)), node.value);
   else if (node.kind === "hp") emit(1, ["lt", "lte", "gt", "gte"].indexOf(node.comparison), node.percent);
+  else if (node.kind === "statStage") emit(12, node.stat, STAT_STAGE_COMPARISONS.indexOf(node.comparison) * 16 + node.stages + 6);
   else if (node.kind !== "fieldEffect" && node.kind !== "sideEffect") emit(STANDARD_CONDITION_CODES[node.kind], Number(Boolean(node.negate)), node.value);
   else if (node.kind === "fieldEffect") emit(8, Number(Boolean(node.negate)), node.value);
   else emit(9, Number(Boolean(node.negate)), encodeSideBattleCondition(node));

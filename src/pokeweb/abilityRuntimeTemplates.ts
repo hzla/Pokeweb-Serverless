@@ -9,6 +9,7 @@ import strikeTemplates from "../assets/data/abilityRuleRuntimeStrikes.json";
 import protectTemplates from "../assets/data/abilityRuleRuntimeProtect.json";
 import formConversionTemplates from "../assets/data/abilityRuleRuntimeFormConversion.json";
 import zenModeMessageJson from "../assets/data/abilityRuleRuntimeZenModeMessages.json?raw";
+import statStageConditionJson from "../assets/data/abilityRuleRuntimeStatStageConditions.json?raw";
 import effectConditionJson from "../assets/data/abilityRuleRuntimeEffectConditions.json?raw";
 import fieldConditionJson from "../assets/data/abilityRuleRuntimeFieldConditions.json?raw";
 import statusExtensionTemplates from "../assets/data/abilityRuleRuntimeStatusExtensions.json";
@@ -63,6 +64,7 @@ type CompactPack<T = TemplateJson> = Partial<Record<TemplateName | `${TemplateNa
 const statSourcePack: LegacyPack = statSourceTemplates;
 let zenModeMessagePack: CompactPack | undefined;
 let fieldConditionPack: CompactPack<string> | undefined;
+let statStageConditionPack: CompactPack<string> | undefined;
 let effectConditionPack: CompactPack<string> | undefined;
 
 type RuntimeTemplateOptions = {
@@ -78,6 +80,7 @@ type RuntimeTemplateOptions = {
     needsZenModeMessages: boolean;
     needsFieldConditions: boolean;
     needsEffectConditions: boolean;
+    needsStatStageConditions: boolean;
 
     // New builds use the builder's current defaults. The recipe reader supplies
     // these capabilities from DLL metadata when reproducing a saved build.
@@ -141,12 +144,13 @@ function pickCompactPack(options: RuntimeTemplateOptions): CompactPack {
 function pickCompactTemplate(name: TemplateName, options: RuntimeTemplateOptions): TemplateJson | undefined {
     // The compact builds are variants of the templates in the stat-source pack.
     if (!statSourcePack[name]) return undefined;
-    const { workSlots, needsEffectConditions, needsFieldConditions, needsFormConversion } = options;
-    if (needsEffectConditions || needsFieldConditions) {
-        const pack = needsEffectConditions
-            ? (effectConditionPack ??= JSON.parse(effectConditionJson))
-            : (fieldConditionPack ??= JSON.parse(fieldConditionJson));
-        const key = needsFormConversion ? `${name}-form` : name;
+    const { workSlots, needsEffectConditions, needsFieldConditions, needsFormConversion, needsStatStageConditions } = options;
+    if (needsEffectConditions || needsFieldConditions || needsStatStageConditions) {
+        let pack: CompactPack<string>;
+        if (needsStatStageConditions) pack = statStageConditionPack ??= JSON.parse(statStageConditionJson);
+        else if (needsEffectConditions) pack = effectConditionPack ??= JSON.parse(effectConditionJson);
+        else pack = fieldConditionPack ??= JSON.parse(fieldConditionJson);
+        const key: keyof typeof pack = needsFormConversion ? `${name}-form` : name;
         const packedTemplate = pack[key]?.[workSlots];
         if (!packedTemplate) return undefined;
         const compressed = Uint8Array.from(atob(packedTemplate), byte => byte.charCodeAt(0));

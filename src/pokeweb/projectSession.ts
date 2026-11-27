@@ -89,7 +89,7 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
     narcs[key as NarcName] = {
       name: store.name, fileId: store.fileId, sourcePath: store.sourcePath,
       container: store.container, fileCount: store.fileCount, filenames: store.filenames,
-      rawFiles: store.rawFiles, dirty: store.dirty, records: new Map(),
+      rawFiles: store.rawFiles, dirty: store.dirty, structureDirty: store.structureDirty, records: new Map(),
     };
   }
   const w2anim = document.w2animAnimations;

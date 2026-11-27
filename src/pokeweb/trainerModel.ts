@@ -1,21 +1,22 @@
 import { storedSpeciesId } from "./speciesExpansionIds";
-import { remapTrainerPoolMembers, remapTrainerSlotMovePools, remapTrainerSlotNicknames } from "./trainerRosterModel";
+import { prepareTrainerRosterRemoval, remapTrainerPoolMembers, remapTrainerSlotMovePools, remapTrainerSlotNicknames } from "./trainerRosterModel";
 import { remapTrainerMemberSettings } from "./trainerCustomizationModel";
-import { cloneTrainerFieldConditions } from "./trainerFieldConditionsModel";
-import { cloneTrainerLevelCap } from "./trainerLevelCapsModel";
+import { clearTrainerFieldConditions, cloneTrainerFieldConditions, getTrainerFieldConditions } from "./trainerFieldConditionsModel";
+import { clearTrainerLevelCap, cloneTrainerLevelCap, getTrainerLevelCap } from "./trainerLevelCapsModel";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName, trainerAbilitySlotMax } from "./cascadeWhiteModel";
-import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, isGen4Project, type Gen4BaseRom, type NarcName } from "./constants";
+import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, GEN4_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, isGen4Project, isGen5Project, type Gen4BaseRom, type Gen4Version, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 import { commitTextBank, getTextBank } from "./textModel";
-import { addTrainerTextFromTemplate, getTrainerTextLines, type TrainerTextLine } from "./trainerTextModel";
+import { addTrainerTextFromTemplate, getTrainerTextLines, prepareTrainerTextRemoval, type TrainerTextLine } from "./trainerTextModel";
 import { publicAsset } from "../assetUrl";
 import { learnsetEntries } from "./pokemonModel";
 import { pokemonFormSuffix } from "./pokemonFormLabels";
 import { detectSpecifyTrainerNaturesPatch } from "./romPatchModel";
 import { bw2TrainerClassIsFemale } from "./bw2TrainerClassResources";
 import { trainerFormPersonalId } from "./trainerSlotFacts";
+import { firstAddedTrainerId, stageAddedTrainerRange } from "./trainerAppendMetadata";
 
 export type TrainerPokemonSlot = {
   slot: number;
@@ -121,6 +122,7 @@ export function addTrainer(project: ProjectState, templateTrainerId?: number): T
   const trpokStore = project.narcs.trpok;
   if (!trdataStore || !trpokStore) throw new Error("Trainer data is not loaded");
   const trainerId = trdataStore.fileCount;
+  const firstAdded = firstAddedTrainerId(project) ?? trainerId;
   const sourceTrainerId = resolveTemplateTrainerId(project, templateTrainerId);
   const sourceTrdata = decodeRecord(project, "trdata", sourceTrainerId);
   const sourceTrpok = decodeRecord(project, "trpok", sourceTrainerId);
@@ -155,8 +157,76 @@ export function addTrainer(project: ProjectState, templateTrainerId?: number): T
   syncTrainerPokemonReadable(project, trainerId, trpokRaw, trpokStore.records.get(trainerId)!.readable!);
   markDirty(project, "trdata", trainerId);
   markDirty(project, "trpok", trainerId);
+  stageAddedTrainerRange(project, firstAdded, trainerId + 1);
 
   return getTrainerRecord(project, trainerId);
+}
+
+export function canDeleteTrainer(project: ProjectState, trainerId: number): boolean {
+  const firstAdded = firstAddedTrainerId(project);
+  return firstAdded !== undefined && trainerId >= firstAdded && trainerId === getTrainerCount(project) - 1;
+}
+
+export async function deleteTrainer(project: ProjectState, trainerId: number): Promise<void> {
+  if (!canDeleteTrainer(project, trainerId)) throw new Error("Only the newest added trainer can be deleted.");
+  const parseTrainerBattleScripts = isGen5Project(project) && project.narcs.scripts
+    ? (await import("./docGeneratorModel")).parseTrainerBattleScripts : undefined;
+  if (!canDeleteTrainer(project, trainerId)) throw new Error("Only the newest added trainer can be deleted.");
+
+  const overworlds = project.narcs.overworlds;
+  for (let id = 0; id < (overworlds?.fileCount ?? 0); id += 1) {
+    const raw = decodeRecord(project, "overworlds", id).raw;
+    if (!raw) continue;
+    for (let npc = 0; npc < (raw.npc_count ?? 0); npc += 1) {
+      const script = raw[`npc_${npc}_script_id`];
+      if (trainerId < 1000 && (script === 3000 + trainerId || script === 5000 + trainerId)) {
+        throw new Error(`Remove this trainer's NPC in Overworld #${id} before deleting it.`);
+      }
+    }
+  }
+  if (parseTrainerBattleScripts) {
+    const scripts = project.narcs.scripts!.rawFiles;
+    const id = scripts.findIndex((bytes) => bytes?.length > 0
+      && parseTrainerBattleScripts(bytes, trainerId, project.session.baseRom).includes(trainerId));
+    if (id >= 0) throw new Error(`Remove the reference to this trainer in script file #${id} before deleting it.`);
+  }
+
+  const firstAdded = firstAddedTrainerId(project)!;
+  const trdata = project.narcs.trdata!;
+  const trpok = project.narcs.trpok!;
+  if (trdata.rawFiles.length !== trainerId + 1 || trpok.rawFiles.length !== trainerId + 1 || project.trpokInfo.length !== trainerId + 1) {
+    throw new Error("The trainer data and party archives do not have matching tails.");
+  }
+  const removeName = prepareTrainerNameRemoval(project, trainerId);
+  const removeText = prepareTrainerTextRemoval(project, trainerId);
+  const removeRosters = prepareTrainerRosterRemoval(project, trainerId);
+  getTrainerFieldConditions(project, trainerId);
+  getTrainerLevelCap(project, trainerId);
+
+  removeName();
+  removeText?.();
+  removeRosters?.();
+  clearTrainerFieldConditions(project, trainerId);
+  clearTrainerLevelCap(project, trainerId);
+  remapTrainerMemberSettings(project, trainerId, trainerId, []);
+  remapTrainerSlotMovePools(project, trainerId, trainerId, []);
+  remapTrainerSlotNicknames(project, trainerId, trainerId, []);
+  for (const store of [trdata, trpok]) {
+    store.rawFiles.pop();
+    store.fileCount = store.rawFiles.length;
+    store.records.delete(trainerId);
+    store.dirty.delete(trainerId);
+    store.structureDirty = true;
+    store.revision = (store.revision ?? 0) + 1;
+  }
+  project.trpokInfo.pop();
+  if (project.docs) {
+    delete project.docs.trainerLocations[trainerId];
+    delete project.docs.trainerLocationSources?.[trainerId];
+    delete project.docs.trainerDiffs[trainerId];
+  }
+  stageAddedTrainerRange(project, firstAdded, trainerId);
+  recordGenericChange(project, "trdata", `Deleted added trainer #${trainerId}.`);
 }
 
 export function trainerMatchesSearch(record: TrainerRecord, searchText: string, resolvedLocations: readonly string[] = []): boolean {
@@ -382,7 +452,10 @@ export function importTrainerPokemonShowdownText(project: ProjectState, trainerI
   const matched = findPokemonValueIndex(project, parsed.species);
   const owner = formRecordOwner(project, matched);
   const speciesId = owner?.species ?? matched;
-  if (owner && parsed.form === undefined) parsed.form = owner.form;
+  const form = parsed.form ?? owner?.form ?? 0;
+  const abilitySlot = parsed.ability === undefined
+    ? Number(trpok.readable[`ability_${slot}`] ?? 0)
+    : trainerAbilitySlotFromShowdown(project, speciesId, form, parsed.ability);
   trpok.raw[`species_id_${slot}`] = speciesId;
   trpok.raw[`level_${slot}`] = parsed.level ?? 100;
   trpok.raw[`ivs_${slot}`] = parsed.ivs ?? 255;
@@ -390,9 +463,8 @@ export function importTrainerPokemonShowdownText(project: ProjectState, trainerI
   trpok.raw[`padding_${slot}`] = naturePatchStatus === "patched" || naturePatchStatus === "legacy"
     ? parseTrainerNatureValue(parsed.nature ?? "Auto")
     : 0;
-  trpok.raw[`form_${slot}`] = parsed.form ?? 0;
+  trpok.raw[`form_${slot}`] = form;
 
-  const abilitySlot = parsed.ability === undefined ? Number(trpok.readable[`ability_${slot}`] ?? 0) : trainerAbilitySlotFromShowdown(project, speciesId, parsed.ability);
   trpok.raw[`ability_${slot}`] = packAbilityGender(abilitySlot, genderIndex(parsed.gender ?? "Default"));
 
   if (parsed.item !== undefined || templateHasItems(trdata.raw.template)) {
@@ -1022,9 +1094,26 @@ function appendTrainerName(project: ProjectState, trainerId: number): void {
 }
 
 function trainerNameBankId(project: ProjectState): number | undefined {
-  const mappings = project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
+  const mappings = isGen4Project(project) ? GEN4_MESSAGE_BANKS[project.session.baseVersion as Gen4Version]
+    : project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
   const source = mappings.find(([, name]) => name === "tr_names")?.[0];
   return typeof source === "number" ? source : source?.[0];
+}
+
+function prepareTrainerNameRemoval(project: ProjectState, trainerId: number): () => void {
+  const names = project.texts.banks.tr_names;
+  const bankId = trainerNameBankId(project);
+  const bank = bankId === undefined || !project.narcs.message_texts ? undefined : getTextBank(project, "message_texts", bankId);
+  if ((names?.length ?? 0) > trainerId + 1 || (bank?.length ?? 0) > trainerId + 1) {
+    throw new Error("This trainer's name is not at the end of the trainer name bank.");
+  }
+  return () => {
+    if (names?.length === trainerId + 1) names.pop();
+    if (bankId !== undefined && bank?.length === trainerId + 1) {
+      bank.pop();
+      commitTextBank(project, "message_texts", bankId);
+    }
+  };
 }
 
 function getPid(
@@ -1069,10 +1158,10 @@ function parseClassId(project: ProjectState, value: string): number {
   return findValueIndex(project.texts.banks.tr_classes ?? [], value, "trainer class");
 }
 
-function abilityName(project: ProjectState, speciesId: number, abilitySlot: number, form = 0): string | number {
+function abilityName(project: ProjectState, speciesId: number, abilitySlot: number, form: number): string | number {
   const cascadeAbility = cascadeWhiteTrainerAbilityName(project, speciesId, abilitySlot, form);
   if (cascadeAbility) return cascadeAbility;
-  const personalId = storedSpeciesId(project, speciesId);
+  const personalId = trainerFormPersonalId(project, speciesId, form);
   if (!project.narcs.personal || personalId >= project.narcs.personal.fileCount) return "";
   const personal = decodeRecord(project, "personal", personalId);
   const slot = Math.min(Math.max(abilitySlot, 1), 3);
@@ -1080,13 +1169,13 @@ function abilityName(project: ProjectState, speciesId: number, abilitySlot: numb
   return personal.readable?.[`ability_${slot}`] ?? "";
 }
 
-function trainerAbilitySlotFromShowdown(project: ProjectState, speciesId: number, inputValue: string): number {
+function trainerAbilitySlotFromShowdown(project: ProjectState, speciesId: number, form: number, inputValue: string): number {
   const numeric = Number(inputValue.trim());
   const maxSlot = trainerAbilitySlotMax(project);
   if (Number.isInteger(numeric) && numeric >= 0 && numeric <= maxSlot) return numeric;
   const normalizedInput = normalizeName(inputValue);
   for (let slot = 1; slot <= maxSlot; slot += 1) {
-    if (normalizeName(String(abilityName(project, speciesId, slot))) === normalizedInput) return slot;
+    if (normalizeName(String(abilityName(project, speciesId, slot, form))) === normalizedInput) return slot;
   }
   throw new Error(`Unknown ability for ${pokemonName(project, speciesId)}: ${inputValue}`);
 }

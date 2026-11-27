@@ -17,7 +17,12 @@ export type BattleRuntimeSignature = {
     }>;
     tails?: Array<{offset: number; target: string}>;
 };
-export const BATTLE_RUNTIME_SIGNATURES: Record<string, BattleRuntimeSignature> = { ...native.functions, ...item.functions, ...ability.functions,...recipe.functions,...client.functions,...scoped.functions };
+// The BW2 getter is reached from IsStatChangeValid and matches the checked BW1 body.
+const STAT_STAGE_GETTER = "18b4002414700c221a70072925d849187944c988090409148f443e000e0014001a00200026002e003600fc3018bc7047fd3018bc7047fe3018bc7047ff3018bc7047f432801818bc7047f532801818bc7047f632801818bc7047002018bc7047";
+export const BATTLE_RUNTIME_SIGNATURES: Record<string, BattleRuntimeSignature> = {
+    BattleMon_GetStatStagePtr: { hex: STAT_STAGE_GETTER, mask: "ff".repeat(STAT_STAGE_GETTER.length / 2), module: "167", calls: [] },
+    ...native.functions, ...item.functions, ...ability.functions, ...recipe.functions, ...client.functions, ...scoped.functions,
+};
 const hex = (s: string) => Uint8Array.from(s.match(/../gu) ?? [], v => Number.parseInt(v, 16));
 
 function battleServicePatterns(name: string, signature: BattleRuntimeSignature) {

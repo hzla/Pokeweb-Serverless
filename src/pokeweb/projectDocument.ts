@@ -28,6 +28,7 @@ export type NarcDocument = {
   rawFiles: Uint8Array[];
   filenames?: Folder;
   dirty: Set<number>;
+  structureDirty?: boolean;
 };
 
 /** Only needed when the matching source ROM is unavailable during a save. */
@@ -110,7 +111,7 @@ export function createProjectDocument(project: ProjectSession, hasMatchingSource
     narcs[key as NarcName] = {
       name: store.name, fileId: store.fileId, sourcePath: store.sourcePath,
       container: store.container, fileCount: store.fileCount, filenames: store.filenames,
-      dirty: store.dirty,
+      dirty: store.dirty, structureDirty: store.structureDirty,
       rawFiles: hasMatchingSource
         ? store.rawFiles.map((bytes, id) => store.dirty.has(id) ? bytes : MISSING_SOURCE_BYTES)
         : store.rawFiles,

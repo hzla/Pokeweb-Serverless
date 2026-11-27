@@ -10,7 +10,7 @@ BUILD=Path(os.environ.get('ABILITY_EFFECTS_BUILD_DIR', HERE/'build')).resolve();
 def run(*args):subprocess.run([str(arg) for arg in args],check=True)
 if len(sys.argv)==1:
     # Released bundles are verification inputs, not current build outputs.
-    run(sys.executable,HERE/'build.py','--effect-conditions-only')
+    run(sys.executable,HERE/'build.py','--stat-stage-conditions-only')
     raise SystemExit(0)
 run(sys.executable,HERE/'generate_move_classes.py')
 
@@ -36,7 +36,8 @@ source_path=ROOT/'src/assets/data/abilityRuleRuntimeStatSource.json'
 source={}
 compact_path=ROOT/'src/assets/data/abilityRuleRuntimeCompact.json'
 compact={}
-effect_conditions='--effect-conditions-only' in sys.argv
+stat_stage_conditions='--stat-stage-conditions-only' in sys.argv
+effect_conditions='--effect-conditions-only' in sys.argv or stat_stage_conditions
 field_conditions='--field-conditions-only' in sys.argv or effect_conditions
 zen_mode_messages='--zen-mode-messages-only' in sys.argv or field_conditions
 form_conversion='--form-conversion-only' in sys.argv or zen_mode_messages
@@ -47,6 +48,8 @@ strikes='--strikes-only' in sys.argv or protect
 environment='--environment-only' in sys.argv or strikes
 native_flags='--native-flags-only' in sys.argv or environment
 native_flags_path=ROOT/('src/assets/data/abilityRuleRuntimeEffectConditions.json' if effect_conditions else 'src/assets/data/abilityRuleRuntimeFieldConditions.json' if field_conditions else 'src/assets/data/abilityRuleRuntimeZenModeMessages.json' if zen_mode_messages else 'src/assets/data/abilityRuleRuntimeFormConversion.json' if form_conversion else 'src/assets/data/abilityRuleRuntimeStatusExtensions.json' if status_extensions else 'src/assets/data/abilityRuleRuntimeWeatherMoves.json' if weather_moves else 'src/assets/data/abilityRuleRuntimeProtect.json' if protect else 'src/assets/data/abilityRuleRuntimeStrikes.json' if strikes else 'src/assets/data/abilityRuleRuntimeEnvironment.json' if environment else 'src/assets/data/abilityRuleRuntimeNativeFlags.json')
+if stat_stage_conditions:
+    native_flags_path=ROOT/'src/assets/data/abilityRuleRuntimeStatStageConditions.json'
 if effect_conditions and os.environ.get('ABILITY_EFFECT_CONDITION_OUTPUT'):
     native_flags_path=Path(os.environ['ABILITY_EFFECT_CONDITION_OUTPUT']).resolve()
 compact_mode='--compact-only' in sys.argv or native_flags
@@ -85,6 +88,8 @@ for suffix,defines,asset,fast,slots in variants:
         if effect_conditions:
             suffix=f"-{asset.replace('.json', '')}-{slots}-effects"
             defines+=['-DABILITY_EFFECT_CONDITIONS']
+        if stat_stage_conditions:
+            suffix+='-stat-stage';defines+=['-DABILITY_STAT_STAGE_CONDITIONS']
     if "--optimized-only" in sys.argv and not fast: continue
     if "--legacy-only" in sys.argv and fast: continue
     if "--actions-only" in sys.argv and "-DABILITY_ACTIONS" not in defines: continue

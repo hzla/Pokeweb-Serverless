@@ -60,6 +60,7 @@ type AbilityModuleOptions = {
     zenModeMessages?: boolean;
     fieldConditions?: boolean;
     effectConditions?: boolean;
+    statStageConditions?: boolean;
 
     // The ability and item DLLs can share the move-parameter lookup.
     ownsMoveParamHook?: boolean;
@@ -112,6 +113,7 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
     zenModeMessages = true,
     fieldConditions = true,
     effectConditions = true,
+    statStageConditions = effectConditions,
 }: AbilityModuleOptions = {}): RpmModule {
     actionResults = actionResults && battleMessages && customFlags;
     statSource = statSource && actionResults;
@@ -142,7 +144,10 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
         }
     }
     const usesKnownMoves = conditionKinds.has("knowsMove");
-    const usesEffectConditions = usesLocalConditions || usesConditionSubjects || usesKnownMoves;
+    const usesStatStageConditions = conditionKinds.has("statStage");
+    if ((statStageConditions && !effectConditions) || (usesStatStageConditions && !statStageConditions))
+        throw new Error("Stat stage conditions require the current ability runtime.");
+    const usesEffectConditions = usesLocalConditions || usesConditionSubjects || usesKnownMoves || usesStatStageConditions;
     if (effectConditions && !fieldConditions || usesEffectConditions && !effectConditions)
         throw Error("Effect and opponent conditions require the current ability runtime.");
     const hasFieldCondition = conditionKinds.has("fieldEffect"), hasSideCondition = conditionKinds.has("sideEffect");
@@ -189,6 +194,7 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
         actions, scoped, weatherGuard, traps, recipes, library, priority,
         needsFormConversion: useFormConversion, needsZenModeMessages: useZenModeMessages,
         needsFieldConditions: usesFieldConditions, needsEffectConditions: usesEffectConditions,
+        needsStatStageConditions: usesStatStageConditions,
         popupGroups, optimizedDispatch: optimized, powerRatio: modern, battleMessages,
         customMoveFlags: customFlags, actionResults, statSource, compactExecution,
         nativeMoveFlags: nativeFlags, environment, strikes, protectionBypass: protect, weatherMoves, statusExtensions,
@@ -201,7 +207,7 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
         previewHook, popupGroups, library, priority, recipes, allowItemMoveParamHook: skipItemMoveParam,
         battleMessages, zenMode, convertType, statSource, hasFieldCondition, hasSideCondition,
         environment, strikes, protectionBypass: protect, weatherMoves, statusExtensions, scoped,
-        usesKnownMoves, usesConditionSubjects,
+        usesKnownMoves, usesConditionSubjects, usesStatStageConditions,
     });
 
     const ruleBytes = encodeAbilityExecutableRules(entries, c.profiles, {
@@ -249,6 +255,7 @@ export function buildAbilityDll(c: AbilityRuntimeContext, entries: ReadonlyMap<n
     if(zenModeMessages)rpm.metadata.PokewebAbilityZenModeMessages=1;
     if(fieldConditions)rpm.metadata.PokewebAbilityFieldConditions=1;
     if(effectConditions)rpm.metadata.PokewebAbilityEffectConditions=1;
+    if (statStageConditions) rpm.metadata.PokewebAbilityStatStageConditions = 1;
     if(nativeFlags)rpm.metadata.PokewebAbilityNativeMoveFlags=1;
     if (modern) {
         rpm.metadata.PokewebAbilityMoveClasses = 1;

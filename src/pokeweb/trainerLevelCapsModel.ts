@@ -107,6 +107,10 @@ export function cloneTrainerLevelCap(project: ProjectState, source: number, targ
   const bytes = fileBytes(project, TRAINER_LEVEL_CAPS_PATH);
   if (bytes) stageTable(project, writeTrainerLevelCapTable(bytes, target, readTrainerLevelCapTable(bytes, source)));
 }
+export function clearTrainerLevelCap(project: ProjectState, trainerId: number): void {
+  const bytes = fileBytes(project, TRAINER_LEVEL_CAPS_PATH);
+  if (bytes && readTrainerLevelCapTable(bytes, trainerId)) stageTable(project, writeTrainerLevelCapTable(bytes, trainerId, 0));
+}
 export function isTrainerLevelCapsModule(rpm: RpmModule, game: Game): boolean {
   const expected = profiles[game], types = ["NULL", "VALUE", "FUNCTION_ARM", "FUNCTION_THM", "SECTION"];
   return rpm.metadata.PMCGameID === game && rpm.metadata.PMCVersion === expected.version && rpm.metadata.PMCModulePriority === 4

@@ -3,12 +3,15 @@ import { describe,it,expect } from "vitest";
 import { validateAbilityRule,encodeAbilityRules,EMPTY_ABILITY_RULE,ABILITY_RULE_PRESETS } from "../pokeweb/abilityRules";
 import { buildAbilityRuleModule,inspectAbilityEffects,nextCustomAbilityId,clearAbilityRules,ABILITY_EFFECTS_DLL_PATH } from "../pokeweb/abilityEffectsModel";
 import { NATIVE_ABILITY_PROFILES } from "../pokeweb/abilityNativeRuntime";
-import { readU16,writeU32 } from "../nds/binary";
+import { readU16, readU32, writeU32 } from "../nds/binary";
 import { writeRpm } from "../pokeweb/rpm";
 import { renderItemRuleForm } from "../ui/itemRuleEditor";
 import { ABILITY_RULE_EFFECTS,ABILITY_NATIVE_EFFECTS } from "../pokeweb/abilityRules";
 import { validateItemRule, EMPTY_ITEM_RULE, type ItemRuleCondition } from "../pokeweb/itemRules";
 import { makeItemEffectsProject } from "./fixtures/itemEffectsProject";
+import { makeBw1AbilityProject } from "./fixtures/blackAbilityProject";
+import { buildAbilityDll } from "../pokeweb/abilityDllBuilder";
+import { getAbilityRuntimeContext } from "../pokeweb/abilityRuntimeContext";
 
 describe("composable ability rules",()=>{
  it("keeps ID zero reserved and encodes both ID boundaries",()=>{
@@ -50,6 +53,46 @@ describe("composable ability rules",()=>{
    expect(html).toContain(label);
   expect(() => validateAbilityRule({...rules,conditions:{kind:"knowsMove",value:0}})).toThrow(/Pokémon condition/u);
   expect(() => validateItemRule({...EMPTY_ITEM_RULE,conditions:condition})).toThrow(/opponent/u);
+ });
+ it("encodes a holder stage comparison and renders its signed threshold", () => {
+  const condition = {kind:"statStage",stat:5,comparison:"gte",stages:2} as const;
+  const rule = validateAbilityRule({...EMPTY_ABILITY_RULE,conditions:condition});
+  const encoded = encodeAbilityRules(new Map([[165,rule]]));
+  expect([...encoded.slice(516,520)]).toEqual([12,5,56,0]);
+  const negative = encodeAbilityRules(new Map([[165,{...rule,conditions:{...condition,comparison:"eq",stages:-6}}]]));
+  expect([...negative.slice(516,520)]).toEqual([12,5,64,0]);
+  const {project} = makeItemEffectsProject();
+  const html = renderItemRuleForm(project,{...rule,consumable:false},{ability:true,definitions:ABILITY_RULE_EFFECTS});
+  for (const label of ["Holder stat stage","Stat to check","At least (≥)","+2"]) expect(html).toContain(label);
+  for (const invalid of [{...condition,stat:0},{...condition,stat:8},{...condition,stages:-7},{...condition,stages:7},{...condition,stages:1.5}])
+   expect(() => validateAbilityRule({...rule,conditions:invalid})).toThrow(/ability stat stage/u);
+  expect(() => validateItemRule({...EMPTY_ITEM_RULE,conditions:condition})).toThrow(/ability stat stage/u);
+ });
+ it.each(["B","W","B2","W2"] as const)("links and reopens holder stage checks on %s", (version) => {
+  const {project} = version === "B" || version === "W" ? makeBw1AbilityProject(version,0x1800,0x3000) : makeItemEffectsProject(0x1800,0x3000,true,true);
+  if (version === "B2" || version === "W2") project.session.baseVersion = version;
+  const local: ItemRuleCondition = {kind:"group",mode:"any",children:[
+   {kind:"statStage",stat:5,comparison:"gte",stages:2},
+   {kind:"statStage",stat:1,comparison:"lt",stages:0},
+  ]};
+  const rule = validateAbilityRule({...EMPTY_ABILITY_RULE,effects:[{kind:"attack",value:1.5,conditions:local}]});
+  const entries = new Map([[165,rule]]);
+  const context = getAbilityRuntimeContext(project);
+  const module = buildAbilityRuleModule(project,entries);
+  const reader = module.symbols.find(symbol => symbol.name === "AbilityStatStageRead");
+  expect(reader).toBeDefined();
+  expect(readU32(module.code,reader!.address)).toBe(context.resolver.resolve("BattleMon_GetStatStagePtr").address | 1);
+  expect(() => buildAbilityDll(context,entries,{statStageConditions:false})).toThrow(/stat stage conditions/iu);
+  project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(module,{ident:"DLXF"})}};
+  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,rules:entries,runtimeVersion:20});
+ });
+ it("reopens a version 19 per-effect recipe and keeps the original code bundle", () => {
+  const {project} = makeItemEffectsProject(0,0,true,true);
+  const entries = new Map([[165,validateAbilityRule({...EMPTY_ABILITY_RULE,effects:[{kind:"attack",value:1.5,conditions:{kind:"hp",comparison:"lte",percent:50}}]})]]);
+  const module = buildAbilityDll(getAbilityRuntimeContext(project),entries,{statStageConditions:false});
+  expect(module.symbols.some(symbol=>symbol.name==="AbilityStatStageRead")).toBe(false);
+  project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(module,{ident:"DLXF"})}};
+  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,rules:entries,runtimeVersion:19});
  });
  it("shares field and side predicates between the ability and item forms", () => {
   const conditions: ItemRuleCondition = {kind:"group",mode:"any",children:[

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { NarcName } from "../pokeweb/constants";
+import { TYPES, type NarcName } from "../pokeweb/constants";
 import { AUTO_ENCOUNTER_TABLE_KEY, encounterRollSelectionsForLevel, getEncounterRollAreas, parseEncounterRollStatics, rollEncounterSelections } from "../pokeweb/encounterRollModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { readGen5SavePokemon } from "../pokeweb/gen5SaveReader";
-import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { decryptPk5Party, encryptPk5Party, experienceForLevel, normalizeTestBattleSavePartyNicknames, parseShowdownTeam, patchTestBattleSavePlayerFirstPokemon, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
 import { evolvePokemonForLevel, evolvePokemonForLevelTargets, forceFinalPokemonEvolution, forceFinalPokemonEvolutions, getEvolutionItems, replaceShowdownPokemonSpecies } from "../pokeweb/testTeamEvolution";
 
@@ -481,6 +481,37 @@ Level: 50
     expect(results[0]).toMatchObject({ tableLabel: "Spring · Grass", level: 10 });
   });
 
+  it.each([
+    ["landPhenomenaPercent", "Grass Special"],
+    ["ripplingWaterPercent", "Surf Special"],
+    ["ripplingFishingPercent", "Super Rod Special"],
+  ] as const)("rolls %s independently of its regular table", (field, label) => {
+    const project = makeProjectWithEncounters();
+    const selection = [{ encounterId: 0, tableKey: AUTO_ENCOUNTER_TABLE_KEY }];
+    const odds = { [field]: 50, maxLevel: 20 };
+
+    expect(rollEncounterSelections(project, selection, () => 0.49, odds)[0]?.tableLabel).toBe("Spring · Grass");
+    expect(rollEncounterSelections(project, selection, () => 0.50, odds)[0]?.tableLabel).toBe(`Spring · ${label}`);
+  });
+
+  it("includes phenomenon-only areas in auto-fill when their table is enabled and within the level cap", () => {
+    const project = makeProjectWithEncounters();
+    const areas = getEncounterRollAreas(project);
+    const selection = { encounterId: 4, tableKey: AUTO_ENCOUNTER_TABLE_KEY };
+    const odds = { landPhenomenaPercent: 20, ripplingWaterPercent: 80, maxLevel: 12 };
+
+    expect(encounterRollSelectionsForLevel(areas, 12, true)).not.toContainEqual(selection);
+    expect(encounterRollSelectionsForLevel(areas, 10, true, odds)).not.toContainEqual(selection);
+    expect(encounterRollSelectionsForLevel(areas, 12, true, odds)).toContainEqual(selection);
+    expect(rollEncounterSelections(project, [selection], () => 0)).toEqual([]);
+    expect(rollEncounterSelections(project, [selection], () => 0.99, odds)[0]?.tableLabel).toBe("Spring · Grass Special");
+    expect(rollEncounterSelections(
+      project,
+      [{ encounterId: 4, tableKey: "4:spring:grass_special" }],
+      () => 0,
+    )[0]?.tableLabel).toBe("Spring · Grass Special");
+  });
+
   it("rejects automatic table percentages totaling over 100", () => {
     const project = makeProjectWithEncounters();
     const [area] = getEncounterRollAreas(project);
@@ -488,8 +519,136 @@ Level: 50
       project,
       [{ encounterId: area.encounterId, tableKey: AUTO_ENCOUNTER_TABLE_KEY }],
       () => 0,
-      { fishingPercent: 50, surfPercent: 40, grassDoublesPercent: 20 },
+      { fishingPercent: 50, surfPercent: 40, landPhenomenaPercent: 20 },
     )).toThrow(/cannot total more than 100%/u);
+  });
+
+  it("uses prior results to pick a Fire-heavy seasonal phenomenon table in Smart Rolling", () => {
+    const project = makeProject();
+    setTestPokemonTypes(project, 1, "Grass", "Poison");
+    setTestPokemonTypes(project, 2, "Fire");
+    const target = encounterRow(5, 1, 5, 1);
+    addEncounterTable(target, "grass_special", 10, 2, 12, "summer");
+    setTestEncounterRows(project, [encounterRow(5, 1, 5, 1), target, {
+      summer_grass_special_rate: 20,
+      summer_grass_special_slot_0: 2,
+      summer_grass_special_slot_0_min_level: 10,
+      summer_grass_special_slot_0_max_level: 10,
+    }]);
+    const prior = { encounterId: 0, tableKey: "0:spring:grass" };
+    const automatic = { encounterId: 1, tableKey: AUTO_ENCOUNTER_TABLE_KEY };
+    const phenomenonOnly = { encounterId: 2, tableKey: AUTO_ENCOUNTER_TABLE_KEY };
+    const smart = { strategy: "smart", fishingPercent: 100, surfPercent: 100 } as const;
+
+    expect(rollEncounterSelections(project, [prior, automatic], () => 0, smart)[1]).toMatchObject({
+      speciesId: 2, tableLabel: "Summer · Grass Special",
+    });
+    expect(rollEncounterSelections(project, [automatic], () => 0, smart)[0]?.tableLabel).toBe("Spring · Grass");
+    expect(rollEncounterSelections(project, [prior, automatic], () => 0, { ...smart, maxLevel: 9 })[1]?.tableLabel).toBe("Spring · Grass");
+    expect(rollEncounterSelections(project, [prior, automatic], () => 0)[1]?.tableLabel).toBe("Spring · Grass");
+
+    const areas = getEncounterRollAreas(project);
+    expect(encounterRollSelectionsForLevel(areas, 10, true, smart)).toContainEqual(phenomenonOnly);
+    expect(encounterRollSelectionsForLevel(areas, 9, true, smart)).not.toContainEqual(phenomenonOnly);
+    expect(encounterRollSelectionsForLevel(areas, 10, true)).not.toContainEqual(phenomenonOnly);
+  });
+
+  it("scores tables using the same duplicate-filtered slot weights as the roll", () => {
+    const project = makeProject();
+    setTestPokemonTypes(project, 1, "Grass");
+    setTestPokemonTypes(project, 2, "Fire");
+    setTestPokemonTypes(project, 3, "Water");
+    setTestPokemonTypes(project, 4, "Grass");
+    const target = encounterRow(5, 2, 5, 1);
+    addEncounterTable(target, "surf", 5, 4, 5);
+    target.spring_surf_slot_0 = 3;
+    setTestEncounterRows(project, [encounterRow(5, 1, 5, 1), target]);
+
+    const results = rollEncounterSelections(project, [
+      { encounterId: 0, tableKey: "0:spring:grass" },
+      { encounterId: 1, tableKey: AUTO_ENCOUNTER_TABLE_KEY },
+    ], () => 0, { strategy: "smart" });
+
+    expect(results[1]).toMatchObject({
+      tableLabel: "Spring · Grass", speciesId: 2, tableChancePercent: 20, effectiveChancePercent: 100,
+    });
+  });
+
+  it("counts tied rare types as one outcome and breaks ties using the next rarity", () => {
+    const project = makeProject();
+    setTestPokemonTypes(project, 1, "Grass");
+    setTestPokemonTypes(project, 2, "Fire");
+    setTestPokemonTypes(project, 3, "Fire", "Water");
+    setTestPokemonTypes(project, 4, "Grass");
+    setTestPokemonTypes(project, 5, "Grass", "Fire");
+    const target = encounterRow(5, 2, 5, 2);
+    addEncounterTable(target, "surf", 5, 4, 5);
+    target.spring_surf_slot_0 = 3;
+    const tied = encounterRow(5, 2, 5, 2);
+    addEncounterTable(tied, "surf", 5, 5, 5);
+    setTestEncounterRows(project, [encounterRow(5, 1, 5, 1), target, tied]);
+    const prior = { encounterId: 0, tableKey: "0:spring:grass" };
+
+    const rollAfterPrior = (encounterId: number) => rollEncounterSelections(project, [
+      prior, { encounterId, tableKey: AUTO_ENCOUNTER_TABLE_KEY },
+    ], () => 0, { strategy: "smart" })[1];
+
+    expect(rollAfterPrior(1)?.tableLabel).toBe("Spring · Grass");
+    expect(rollAfterPrior(2)?.tableLabel).toBe("Spring · Surf");
+  });
+
+  it("forecasts evolved types at the entered level or across the slot's level range", () => {
+    const project = makeProject();
+    addEvolutionStore(project, 4, 6, 3);
+    setTestPokemonTypes(project, 1, "Grass");
+    setTestPokemonTypes(project, 2, "Fire");
+    setTestPokemonTypes(project, 3, "Fire");
+    setTestPokemonTypes(project, 4, "Grass");
+    const target = encounterRow(6, 1, 4, 1);
+    for (let index = 0; index < 12; index += 1) {
+      target[`spring_grass_slot_${index}_min_level`] = 4;
+      target[`spring_grass_slot_${index}_max_level`] = 6;
+    }
+    addEncounterTable(target, "surf", 5, 4, 5);
+    target.spring_surf_slot_0 = 2;
+    setTestEncounterRows(project, [encounterRow(5, 4, 5, 4), target]);
+    const selections = [
+      { encounterId: 0, tableKey: "0:spring:grass" },
+      { encounterId: 1, tableKey: AUTO_ENCOUNTER_TABLE_KEY },
+    ];
+
+    expect(rollEncounterSelections(project, selections, () => 0, { strategy: "smart" })[1]?.tableLabel).toBe("Spring · Surf");
+    expect(rollEncounterSelections(project, selections, () => 0, { strategy: "smart", maxLevel: 6 })[1]).toMatchObject({
+      tableLabel: "Spring · Grass", speciesId: 3, level: 6,
+    });
+  });
+
+  it("uses form types and counts every emitted evolution branch in Smart Rolling", () => {
+    const project = makeProjectWithBulbasaurForm();
+    addBranchingEvolutionStore(project, 8, 1, [2, 650]);
+    setTestPokemonTypes(project, 1, "Fire");
+    setTestPokemonTypes(project, 2, "Fire");
+    setTestPokemonTypes(project, 3, "Grass");
+    setTestPokemonTypes(project, 4, "Water");
+    setTestPokemonTypes(project, 650, "Grass");
+    const branches = encounterRow(5, 3, 5, 3);
+    addEncounterTable(branches, "grass_special", 5, 4, 12);
+    const forms = encounterRow(5, 2, 5, 2);
+    addEncounterTable(forms, "grass_special", 5, 2048 + 1, 12);
+    setTestEncounterRows(project, [encounterRow(5, 1, 5, 1), branches, encounterRow(5, 2, 5, 2), forms]);
+
+    const withItems = rollEncounterSelections(project, [
+      { encounterId: 0, tableKey: "0:spring:grass" },
+      { encounterId: 1, tableKey: AUTO_ENCOUNTER_TABLE_KEY },
+    ], () => 0, { strategy: "smart", obtainedEvolutionItemIds: [1] });
+    expect(withItems.map(({ speciesId, formIndex }) => [speciesId, formIndex])).toEqual([[2, 0], [1, 1], [4, 0]]);
+    expect(withItems[2]?.tableLabel).toBe("Spring · Grass Special");
+
+    const withForm = rollEncounterSelections(project, [
+      { encounterId: 2, tableKey: "2:spring:grass" },
+      { encounterId: 3, tableKey: AUTO_ENCOUNTER_TABLE_KEY },
+    ], () => 0, { strategy: "smart" });
+    expect(withForm[1]).toMatchObject({ speciesId: 1, formIndex: 1, tableLabel: "Spring · Grass Special" });
   });
 
   it("uses the latest eligible level evolution at the auto-fill level", () => {
@@ -705,18 +864,24 @@ function makeProjectWithEncounters(): ProjectState {
     encounterRow(9, 1, 8, 2),
     encounterRow(20, 2, 20, 2),
     encounterRow(3, 2, 3, 2),
+    {},
   ];
   addEncounterTable(encounterRows[0], "surf", 8, 2, 5);
   addEncounterTable(encounterRows[0], "grass_doubles", 10, 1, 12);
   addEncounterTable(encounterRows[0], "super_rod", 12, 2, 5);
+  addEncounterTable(encounterRows[0], "grass_special", 9, 1, 12);
+  addEncounterTable(encounterRows[0], "surf_special", 11, 2, 5);
+  addEncounterTable(encounterRows[0], "super_rod_special", 14, 2, 5);
+  addEncounterTable(encounterRows[4], "grass_special", 11, 2, 12);
   project.narcs.encounters = makeStore("encounters", encounterRows.map((row) => packRows(formats.encounters!, [row])));
   project.session.fileIds.encounters = 4;
   project.headers = {
-    count: 3,
+    count: 4,
     rows: {
       1: { index: 0, location_name: "Route 1", encounter_id: 0 },
       2: { index: 1, location_name: "Route 2", encounter_id: 1 },
       3: { index: 2, location_name: "Route 3", encounter_id: 2 },
+      4: { index: 3, location_name: "Bridge", encounter_id: 4 },
     },
   };
   return project;
@@ -724,18 +889,40 @@ function makeProjectWithEncounters(): ProjectState {
 
 function addEncounterTable(
   row: Record<string, number>,
-  kind: "surf" | "grass_doubles" | "super_rod",
+  kind: "surf" | "grass_doubles" | "super_rod" | "grass_special" | "surf_special" | "super_rod_special",
   maxLevel: number,
   speciesId: number,
   slotCount: number,
+  season = "spring",
 ): void {
-  row[`spring_${kind}_rate`] = 20;
+  row[`${season}_${kind}_rate`] = 20;
   for (let slot = 0; slot < slotCount; slot += 1) {
-    const base = `spring_${kind}_slot_${slot}`;
+    const base = `${season}_${kind}_slot_${slot}`;
     row[base] = speciesId;
     row[`${base}_min_level`] = maxLevel;
     row[`${base}_max_level`] = maxLevel;
   }
+}
+
+function setTestEncounterRows(project: ProjectState, rows: Record<string, number>[]): void {
+  project.narcs.encounters = makeStore("encounters", rows.map((row) => packRows(project.formats.encounters!, [row])));
+  project.headers = {
+    count: rows.length,
+    rows: Object.fromEntries(rows.map((_, index) => [index + 1, {
+      index, location_name: `Route ${index + 1}`, encounter_id: index,
+    }])),
+  };
+}
+
+function setTestPokemonTypes(project: ProjectState, speciesId: number, first: string, second = first): void {
+  const personal = project.narcs.personal!;
+  if (!personal.rawFiles[speciesId]) {
+    personal.rawFiles[speciesId] = personal.rawFiles[2].slice();
+    personal.fileCount = personal.rawFiles.length;
+  }
+  const raw = decodeRecord(project, "personal", speciesId).raw!;
+  raw.type_1 = TYPES.indexOf(first);
+  raw.type_2 = TYPES.indexOf(second);
 }
 
 function addEvolutionStore(project: ProjectState, method: number, param: number, target: number): void {

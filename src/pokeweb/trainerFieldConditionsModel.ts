@@ -171,6 +171,12 @@ export function cloneTrainerFieldConditions(project: ProjectState, source: numbe
   const bytes = fileBytes(project, TRAINER_FIELD_CONDITIONS_PATH);
   if (bytes) stageFile(project, writeTrainerFieldTable(bytes, target, readTrainerFieldTable(bytes, source)));
 }
+export function clearTrainerFieldConditions(project: ProjectState, trainerId: number): void {
+  const bytes = fileBytes(project, TRAINER_FIELD_CONDITIONS_PATH);
+  if (bytes && Object.values(readTrainerFieldTable(bytes, trainerId)).some(Boolean)) {
+    stageFile(project, writeTrainerFieldTable(bytes, trainerId, emptyTrainerFieldConditions()));
+  }
+}
 const hex = (bytes: Uint8Array) => Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
 export function isTrainerFieldConditionsModule(rpm: RpmModule, game?: Game): boolean {
   const target = rpm.metadata.PMCGameID;

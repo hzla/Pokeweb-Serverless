@@ -15,6 +15,7 @@ export type RomPatchId =
   | "black2ApFix"
   | "white2ApFix"
   | "challengeModeStats"
+  | "abilityStorageFix"
   | "earlyChallengeMode"
   | "earlyNationalDex"
   | "removeDustCloudGems"

@@ -1,11 +1,16 @@
 """Shipped ARM consolidated effects with isolated services; not native gameplay."""
-import json, struct, sys
+import base64, json, struct, sys, zlib
 from pathlib import Path
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
 from unicorn.arm_const import UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3,UC_ARM_REG_SP,UC_ARM_REG_LR
 ROOT=Path(__file__).resolve().parents[2]
 BUNDLES=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeCompact.json').read_text())
 if '--current' in sys.argv:BUNDLES=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeStrikes.json').read_text())
+STAT_STAGE_TEST='--stat-stage' in sys.argv
+if STAT_STAGE_TEST:
+ packed=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeStatStageConditions.json').read_text())
+ name='abilityRuleRuntimeRecipesActions.json'
+ BUNDLES={name:{slots:json.loads(zlib.decompress(base64.b64decode(blob))) for slots,blob in packed[name].items()}}
 BASE,API,DATA,ITEM,FLOW,WORK,STACK,STOP=0x100000,0x200000,0x312000,0x310000,0x311000,0x314000,0x410000,0x20f000
 u32=lambda x:struct.pack('<I',x&0xffffffff)
 
@@ -69,6 +74,37 @@ def guard(mask,scope=1,cure=0,bypass=1):return bytes([166,mask&255,1,0,mask>>8,s
 def group(changes,activation=0,chance=100,once=0,order=None):
  packed=sum((v&15)<<((stat-1)*4)for stat,v in changes);r=bytearray(16);r[0]=167;r[1]=activation|once<<3;r[2:6]=u32(packed);r[6]=chance;r[8]=50
  ordered=sum(stat<<(n*3)for n,stat in enumerate(order or [s for s,_ in changes]));r[12:15]=ordered.to_bytes(3,'little');return bytes(r)
+if STAT_STAGE_TEST:
+ from operator import lt, le, gt, ge, eq
+ native=json.loads((ROOT/'src/assets/data/abilityBindingsB1.json').read_text())
+ getter=bytes.fromhex(native['functions']['BattleMon_GetStatStagePtr']['hex'])
+ for local in [False,True]:
+  r=Runtime([bytes([1,0,0,24,0,0,100,0,0,0,0,0,0,0,0,0])])
+  r.values[3]=0
+  r.vm.mem_write(API+0x2000,getter)
+  r.vm.mem_write(BASE+r.symbols['AbilityStatStageRead'],u32(API+0x2001))
+  condition=DATA+516
+  if local:
+   r.vm.mem_write(DATA+514,bytes([1]))
+   r.vm.mem_write(DATA+536,struct.pack('<H',26)+bytes([0,1,1,0,12,5,56,0,0x3b]))
+   condition=DATA+542
+  for index,compare in enumerate([lt,le,gt,ge,eq]):
+   for threshold in [-6,0,2,6]:
+    r.vm.mem_write(condition,bytes([12,5,index*16+threshold+6,0]))
+    for stage in range(-6,7):
+     r.vm.mem_write(0x300000+0x100,bytes([stage+6]))
+     r.mult.clear()
+     r.event(0x3b)
+     assert bool(r.mult)==compare(stage,threshold),(local,index,stage,threshold,r.mult)
+  for stat in range(1,8):
+   r.vm.mem_write(condition,bytes([12,stat,56,0]))
+   r.vm.mem_write(0x300000+0xfc,bytes([8 if i==stat-1 else 7 for i in range(7)]))
+   r.mult.clear()
+   r.event(0x3b)
+   assert r.mult==[(0x35,6144)],(local,stat,r.mult)
+ print('534 shipped ARM stat-stage comparisons passed, with zero weather queries.')
+ sys.exit()
+
 count=0
 conditions=[1,2,3,4,5,6,7,11,12,13,14,15,23];mental=[7,11,12,13,15,23];mask=sum(1<<conditions.index(c)for c in mental)
 for slots in (4,8,16):

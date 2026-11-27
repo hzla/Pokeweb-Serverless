@@ -1,4 +1,4 @@
-import { ENCOUNTER_SEASONS, NATURES, isGen4Project } from "./constants";
+import { ENCOUNTER_SEASONS, NATURES, isGen4Project, typeNamesForProject } from "./constants";
 import {
   encounterKindHasLevels,
   encounterKindHasPercent,
@@ -15,7 +15,8 @@ import {
 import { learnsetEntries } from "./pokemonModel";
 import { decodeRecord, type ProjectState } from "./projectStore";
 import { parseShowdownTeam } from "./testBattleTeam";
-import { evolvePokemonForLevelTargets } from "./testTeamEvolution";
+import { evolvePokemonForLevelTargets, type TestTeamEvolution } from "./testTeamEvolution";
+import { trainerFormPersonalId } from "./trainerSlotFacts";
 
 const DEFAULT_KIND_PRIORITY: readonly EncounterKind[] = [
   "grass",
@@ -31,6 +32,26 @@ const DEFAULT_KIND_PRIORITY: readonly EncounterKind[] = [
 ];
 
 export const AUTO_ENCOUNTER_TABLE_KEY = "auto";
+
+export const ENCOUNTER_ROLL_PERCENT_FIELDS = [
+  { field: "grassDoublesPercent", method: "grass_doubles", label: "Grass Doubles" },
+  { field: "surfPercent", method: "surf", label: "Surf" },
+  { field: "fishingPercent", method: "super_rod", label: "Fishing" },
+  { field: "landPhenomenaPercent", method: "grass_special", label: "Land phenomena" },
+  { field: "ripplingWaterPercent", method: "surf_special", label: "Rippling water" },
+  { field: "ripplingFishingPercent", method: "super_rod_special", label: "Fishing (ripples)" },
+] as const;
+
+type EncounterRollPercentField = (typeof ENCOUNTER_ROLL_PERCENT_FIELDS)[number]["field"];
+type EncounterRollMethod = "grass" | (typeof ENCOUNTER_ROLL_PERCENT_FIELDS)[number]["method"];
+type EncounterRollMethodWeight = { method: EncounterRollMethod; weight: number };
+
+export type EncounterRollPercentages = Partial<Record<EncounterRollPercentField, number>>;
+export type EncounterRollStrategy = "weighted" | "smart";
+
+type AutomaticTableOptions = EncounterRollPercentages & {
+  strategy?: EncounterRollStrategy;
+};
 
 export type EncounterRollSlot = {
   speciesId: number;
@@ -62,10 +83,7 @@ export type EncounterRollSelection = {
   tableKey: string;
 };
 
-export type EncounterRollTableOdds = {
-  fishingPercent: number;
-  surfPercent: number;
-  grassDoublesPercent: number;
+export type EncounterRollTableOdds = AutomaticTableOptions & {
   maxLevel?: number;
   obtainedEvolutionItemIds?: readonly number[];
 };
@@ -125,18 +143,23 @@ export function encounterRollSelectionsForLevel(
   areas: readonly EncounterRollArea[],
   maxLevel: number,
   automaticTables = false,
+  options?: AutomaticTableOptions,
 ): EncounterRollSelection[] {
   if (!Number.isFinite(maxLevel) || maxLevel < 1 || maxLevel > 100) {
     throw new Error("Enter a level from 1 to 100.");
   }
+  const level = Math.trunc(maxLevel);
+  const smart = options?.strategy === "smart";
+  const weights = automaticTables && !smart ? tableWeights(options) : [];
   return areas.flatMap((area) => {
     if (automaticTables) {
-      return automaticTablesForArea(area, Math.trunc(maxLevel)).length > 0
+      const tables = smart ? tablesWithinLevel(area, level) : automaticTablesForArea(area, level, weights);
+      return tables.length > 0
         ? [{ encounterId: area.encounterId, tableKey: AUTO_ENCOUNTER_TABLE_KEY }]
         : [];
     }
     const table = area.tables.find((candidate) => candidate.key === area.defaultTableKey);
-    return table && table.maxLevel <= Math.trunc(maxLevel)
+    return table && table.maxLevel <= level
       ? [{ encounterId: area.encounterId, tableKey: table.key }]
       : [];
   });
@@ -152,24 +175,31 @@ export function rollEncounterSelections(
   const caughtSpecies = new Set<number>();
   const rolledAreas = new Set<number>();
   const results: EncounterRollResult[] = [];
-  const normalizedTableOdds = normalizeTableOdds(tableOdds);
+  const smart = tableOdds?.strategy === "smart";
+  const weights = smart ? [] : tableWeights(tableOdds);
+  const maxLevel = Number.isFinite(tableOdds?.maxLevel) && Number(tableOdds?.maxLevel) >= 1
+    ? Math.min(100, Math.trunc(Number(tableOdds?.maxLevel)))
+    : undefined;
   const obtainedEvolutionItemIds = new Set(tableOdds?.obtainedEvolutionItemIds ?? []);
+  const smartRoll = smart ? createSmartTableSelection(project, caughtSpecies, maxLevel, obtainedEvolutionItemIds) : undefined;
 
   for (const selection of selections) {
     if (rolledAreas.has(selection.encounterId)) continue;
     const area = areaById.get(selection.encounterId);
-    const table = area && selection.tableKey === AUTO_ENCOUNTER_TABLE_KEY
-      ? chooseAutomaticTable(area, normalizedTableOdds, random)
-      : area?.tables.find((candidate) => candidate.key === selection.tableKey);
-    if (!area || !table || table.slots.length === 0) continue;
+    if (!area) continue;
+    const table = selection.tableKey === AUTO_ENCOUNTER_TABLE_KEY
+      ? smartRoll
+        ? smartRoll.chooseTable(area)
+        : chooseAutomaticTable(area, weights, maxLevel ?? 100, random)
+      : area.tables.find((candidate) => candidate.key === selection.tableKey);
+    if (!table || table.slots.length === 0) continue;
     rolledAreas.add(area.encounterId);
 
-    const nonDupeSlots = table.slots.filter((slot) => !caughtSpecies.has(slot.speciesId));
-    const eligibleSlots = nonDupeSlots.length > 0 ? nonDupeSlots : table.slots;
+    const eligibleSlots = eligibleEncounterSlots(table, caughtSpecies);
     const slot = weightedPick(eligibleSlots, random);
     const tableChancePercent = speciesChancePercent(table.slots, slot.speciesId);
     const effectiveChancePercent = speciesChancePercent(eligibleSlots, slot.speciesId);
-    const level = normalizedTableOdds.maxLevel ?? randomInteger(slot.minLevel, slot.maxLevel, random);
+    const level = maxLevel ?? randomInteger(slot.minLevel, slot.maxLevel, random);
     const nature = NATURES[randomInteger(0, NATURES.length - 1, random)] ?? NATURES[0];
     const ivs = randomIvs(random);
     const evolvedTargets = evolvePokemonForLevelTargets(project, slot.speciesId, slot.formIndex, level, obtainedEvolutionItemIds);
@@ -187,34 +217,104 @@ export function rollEncounterSelections(
       effectiveChancePercent,
       showdownText: formatRolledEncounter(project, evolved.speciesName, evolved.speciesId, evolved.formIndex, level, nature, ivs),
     }));
+    smartRoll?.recordCatch(evolvedTargets);
     caughtSpecies.add(slot.speciesId);
   }
   return results;
 }
 
-type EncounterRollMethod = "grass" | "grass_doubles" | "surf" | "fishing";
+function eligibleEncounterSlots(table: EncounterRollTable, caughtSpecies: ReadonlySet<number>): readonly EncounterRollSlot[] {
+  const nonDupeSlots = table.slots.filter((slot) => !caughtSpecies.has(slot.speciesId));
+  return nonDupeSlots.length > 0 ? nonDupeSlots : table.slots;
+}
 
-type NormalizedEncounterRollTableOdds = Omit<Required<EncounterRollTableOdds>, "maxLevel" | "obtainedEvolutionItemIds"> & {
-  grassPercent: number;
-  maxLevel?: number;
-};
+function tablesWithinLevel(area: EncounterRollArea, maxLevel: number): EncounterRollTable[] {
+  return area.tables.filter((table) => table.maxLevel <= maxLevel);
+}
 
-function normalizeTableOdds(tableOdds?: EncounterRollTableOdds): NormalizedEncounterRollTableOdds {
-  const fishingPercent = validPercent(tableOdds?.fishingPercent ?? 0, "Fishing");
-  const surfPercent = validPercent(tableOdds?.surfPercent ?? 0, "Surf");
-  const grassDoublesPercent = validPercent(tableOdds?.grassDoublesPercent ?? 0, "Grass Doubles");
-  const configuredTotal = fishingPercent + surfPercent + grassDoublesPercent;
-  if (configuredTotal > 100) throw new Error("Fishing, Surf, and Grass Doubles percentages cannot total more than 100%.");
-  const maxLevel = Number.isFinite(tableOdds?.maxLevel) && Number(tableOdds?.maxLevel) >= 1
-    ? Math.min(100, Math.trunc(Number(tableOdds?.maxLevel)))
-    : undefined;
+function createSmartTableSelection(
+  project: ProjectState,
+  caughtSpecies: ReadonlySet<number>,
+  maxLevel: number | undefined,
+  obtainedEvolutionItemIds: ReadonlySet<number>,
+) {
+  const typeCount = typeNamesForProject(project).length;
+  const counts = new Map<number, number>();
+  const typesByForm = new Map<string, ReadonlySet<number>>();
+  const typesByOutcome = new Map<string, ReadonlySet<number>>();
+
+  function pokemonTypes({ speciesId, formIndex }: TestTeamEvolution): ReadonlySet<number> {
+    const key = `${speciesId}:${formIndex}`;
+    const cached = typesByForm.get(key);
+    if (cached) return cached;
+    const types = new Set<number>();
+    const personalId = trainerFormPersonalId(project, speciesId, formIndex);
+    if (project.narcs.personal?.rawFiles[personalId]) {
+      const personal = decodeRecord(project, "personal", personalId).raw;
+      for (const type of [personal?.type_1, personal?.type_2]) {
+        if (typeof type === "number" && Number.isInteger(type) && type >= 0 && type < typeCount) types.add(type);
+      }
+    }
+    typesByForm.set(key, types);
+    return types;
+  }
+
+  function outcomeTypes(slot: EncounterRollSlot, level: number): ReadonlySet<number> {
+    const key = `${slot.speciesId}:${slot.formIndex}:${level}`;
+    const cached = typesByOutcome.get(key);
+    if (cached) return cached;
+    const targets = evolvePokemonForLevelTargets(project, slot.speciesId, slot.formIndex, level, obtainedEvolutionItemIds);
+    const types = new Set(targets.flatMap((target) => [...pokemonTypes(target)]));
+    typesByOutcome.set(key, types);
+    return types;
+  }
+
+  function tableChances(table: EncounterRollTable): ReadonlyMap<number, number> {
+    const slots = eligibleEncounterSlots(table, caughtSpecies);
+    const totalWeight = slots.reduce((total, slot) => total + slot.weight, 0);
+    const chances = new Map<number, number>();
+    for (const slot of slots) {
+      const from = maxLevel ?? slot.minLevel;
+      const through = maxLevel ?? slot.maxLevel;
+      const chance = slot.weight / totalWeight / (through - from + 1);
+      for (let level = from; level <= through; level += 1) {
+        // A slot and level can only match a rarity group once, even with several types or evolutions.
+        const matchingGroups = new Set([...outcomeTypes(slot, level)].map((type) => counts.get(type) ?? 0));
+        for (const group of matchingGroups) chances.set(group, (chances.get(group) ?? 0) + chance);
+      }
+    }
+    return chances;
+  }
+
   return {
-    fishingPercent,
-    surfPercent,
-    grassDoublesPercent,
-    grassPercent: 100 - configuredTotal,
-    maxLevel,
+    chooseTable(area: EncounterRollArea): EncounterRollTable | undefined {
+      const tables = tablesWithinLevel(area, maxLevel ?? 100);
+      if (tables.length < 2) return tables[0];
+      const rarityGroups = [...new Set([0, ...counts.values()])].sort((left, right) => left - right);
+      return tables.map((table) => ({ table, chances: tableChances(table) })).sort((left, right) => {
+        for (const group of rarityGroups) {
+          const difference = (right.chances.get(group) ?? 0) - (left.chances.get(group) ?? 0);
+          if (Math.abs(difference) > 1e-12) return difference;
+        }
+        return compareDefaultTables(left.table, right.table);
+      })[0].table;
+    },
+    recordCatch(targets: readonly TestTeamEvolution[]): void {
+      for (const target of targets) {
+        for (const type of pokemonTypes(target)) counts.set(type, (counts.get(type) ?? 0) + 1);
+      }
+    },
   };
+}
+
+function tableWeights(percentages?: EncounterRollPercentages): EncounterRollMethodWeight[] {
+  const weights = ENCOUNTER_ROLL_PERCENT_FIELDS.map(({ field, method, label }) => ({
+    method,
+    weight: validPercent(percentages?.[field] ?? 0, label),
+  }));
+  const configuredTotal = weights.reduce((total, { weight }) => total + weight, 0);
+  if (configuredTotal > 100) throw new Error("Automatic table chances cannot total more than 100%.");
+  return [{ method: "grass", weight: 100 - configuredTotal }, ...weights];
 }
 
 function validPercent(value: number, label: string): number {
@@ -224,42 +324,37 @@ function validPercent(value: number, label: string): number {
 
 function chooseAutomaticTable(
   area: EncounterRollArea,
-  tableOdds: NormalizedEncounterRollTableOdds,
+  weights: readonly EncounterRollMethodWeight[],
+  maxLevel: number,
   random: () => number,
 ): EncounterRollTable | undefined {
-  const eligibleTables = automaticTablesForArea(area, tableOdds.maxLevel ?? 100);
+  const eligibleTables = automaticTablesForArea(area, maxLevel, weights);
   if (eligibleTables.length === 0) return undefined;
-  const methodTables = new Map<EncounterRollMethod, EncounterRollTable>();
-  for (const method of ["grass", "grass_doubles", "surf", "fishing"] as const) {
+  const weightedTables = weights.flatMap(({ method, weight }) => {
+    if (weight === 0) return [];
     const table = preferredMethodTable(eligibleTables, method);
-    if (table) methodTables.set(method, table);
-  }
-  const weightedMethods = [
-    { method: "grass" as const, weight: tableOdds.grassPercent },
-    { method: "grass_doubles" as const, weight: tableOdds.grassDoublesPercent },
-    { method: "surf" as const, weight: tableOdds.surfPercent },
-    { method: "fishing" as const, weight: tableOdds.fishingPercent },
-  ].filter(({ method, weight }) => weight > 0 && methodTables.has(method));
-  if (weightedMethods.length === 0) return defaultTable(eligibleTables);
-  if (weightedMethods.length === 1) return methodTables.get(weightedMethods[0].method);
-  const total = weightedMethods.reduce((sum, candidate) => sum + candidate.weight, 0);
-  let target = randomUnit(random) * total;
-  for (const candidate of weightedMethods) {
-    if (target < candidate.weight) return methodTables.get(candidate.method);
-    target -= candidate.weight;
-  }
-  return methodTables.get(weightedMethods[weightedMethods.length - 1].method);
+    return table ? [{ table, weight }] : [];
+  });
+  if (weightedTables.length === 0) return defaultTable(eligibleTables);
+  if (weightedTables.length === 1) return weightedTables[0].table;
+  return weightedPick(weightedTables, random).table;
 }
 
-function automaticTablesForArea(area: EncounterRollArea, maxLevel: number): EncounterRollTable[] {
-  return area.tables.filter((table) => table.maxLevel <= maxLevel && encounterRollMethod(table.kind) !== undefined);
+function automaticTablesForArea(
+  area: EncounterRollArea,
+  maxLevel: number,
+  weights: readonly EncounterRollMethodWeight[],
+): EncounterRollTable[] {
+  return tablesWithinLevel(area, maxLevel).filter((table) => weights.some(({ method, weight }) =>
+    encounterRollMethod(table.kind) === method && (weight > 0 || !method.endsWith("_special")),
+  ));
 }
 
 function preferredMethodTable(tables: readonly EncounterRollTable[], method: EncounterRollMethod): EncounterRollTable | undefined {
   return tables
     .filter((table) => encounterRollMethod(table.kind) === method)
     .sort((left, right) => {
-      if (method === "fishing") {
+      if (method === "super_rod") {
         const rodDifference = fishingKindPriority(left.kind) - fishingKindPriority(right.kind);
         if (rodDifference !== 0) return rodDifference;
       }
@@ -269,12 +364,8 @@ function preferredMethodTable(tables: readonly EncounterRollTable[], method: Enc
     })[0];
 }
 
-function encounterRollMethod(kind: EncounterKind): EncounterRollMethod | undefined {
-  if (kind === "grass") return "grass";
-  if (kind === "grass_doubles") return "grass_doubles";
-  if (kind === "surf") return "surf";
-  if (kind === "old_rod" || kind === "good_rod" || kind === "super_rod") return "fishing";
-  return undefined;
+function encounterRollMethod(kind: EncounterKind): EncounterKind {
+  return kind === "old_rod" || kind === "good_rod" ? "super_rod" : kind;
 }
 
 function fishingKindPriority(kind: EncounterKind): number {
@@ -351,12 +442,13 @@ function getRollTables(project: ProjectState, encounterId: number, raw: Record<s
 }
 
 function defaultTable(tables: readonly EncounterRollTable[]): EncounterRollTable {
-  return [...tables].sort((left, right) => {
-    const leftSeason = left.season === "spring" ? 0 : 1;
-    const rightSeason = right.season === "spring" ? 0 : 1;
-    if (leftSeason !== rightSeason) return leftSeason - rightSeason;
-    return kindPriority(left.kind) - kindPriority(right.kind);
-  })[0];
+  return [...tables].sort(compareDefaultTables)[0];
+}
+
+function compareDefaultTables(left: EncounterRollTable, right: EncounterRollTable): number {
+  const leftSeason = left.season === "spring" ? 0 : 1;
+  const rightSeason = right.season === "spring" ? 0 : 1;
+  return leftSeason - rightSeason || kindPriority(left.kind) - kindPriority(right.kind);
 }
 
 function kindPriority(kind: EncounterKind): number {
@@ -364,14 +456,14 @@ function kindPriority(kind: EncounterKind): number {
   return index < 0 ? DEFAULT_KIND_PRIORITY.length : index;
 }
 
-function weightedPick(slots: readonly EncounterRollSlot[], random: () => number): EncounterRollSlot {
-  const total = slots.reduce((sum, slot) => sum + slot.weight, 0);
+function weightedPick<T extends { weight: number }>(choices: readonly T[], random: () => number): T {
+  const total = choices.reduce((sum, choice) => sum + choice.weight, 0);
   let target = randomUnit(random) * total;
-  for (const slot of slots) {
-    if (target < slot.weight) return slot;
-    target -= slot.weight;
+  for (const choice of choices) {
+    if (target < choice.weight) return choice;
+    target -= choice.weight;
   }
-  return slots[slots.length - 1];
+  return choices[choices.length - 1];
 }
 
 function speciesChancePercent(slots: readonly EncounterRollSlot[], speciesId: number): number {

@@ -5,6 +5,7 @@ import { hydrateTrainerRosters } from "./trainerRosterModel";
 import { hydrateTrainerCustomizationSources } from "./trainerCustomizationModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateTrainerLevelCapsSources } from "./trainerLevelCapsModel";
+import { hydrateAddedTrainerSource } from "./trainerAppendMetadata";
 import { hydrateNaturePalettes } from "./naturePaletteModel";
 import { hydrateNaturePaletteRuntime } from "./naturePaletteRuntime";
 import { hydrateItemEffectsSource } from "./itemEffectsModel";
@@ -369,10 +370,11 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
     }
     if (!hasMissingFiles && store.filenames) continue;
     const narc = new NARC(rom.files[store.fileId]);
-    if (hasMissingFiles) store.rawFiles = hydrateNarcRawFiles(store.rawFiles, store.dirty, store.fileCount, narc.files);
+    if (hasMissingFiles) store.rawFiles = hydrateNarcRawFiles(store.rawFiles, store.dirty, store.fileCount, narc.files, store.structureDirty);
     store.filenames ??= narc.filenames;
     store.fileCount = store.rawFiles.length;
   }
+  hydrateAddedTrainerSource(project, rom);
 
   const overlayIds: number[] = [];
   if (project.session.baseRom === "BW2" && (project.narcs.items || project.narcs.personal)) overlayIds.push(167);
@@ -412,8 +414,9 @@ export function hydrateNarcRawFiles(
   dirtyFileIds: ReadonlySet<number>,
   persistedFileCount: number,
   originalFiles: Uint8Array[],
+  structureDirty = false,
 ): Uint8Array[] {
-  const fileCount = Math.max(persistedFileCount, persistedFiles.length, originalFiles.length);
+  const fileCount = structureDirty ? persistedFileCount : Math.max(persistedFileCount, persistedFiles.length, originalFiles.length);
   return Array.from({ length: fileCount }, (_unused, index) => {
     const persisted = persistedFiles[index];
     // The caller transfers ownership of deserialized and freshly parsed bytes.

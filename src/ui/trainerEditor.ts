@@ -17,6 +17,8 @@ import {
 } from "../pokeweb/trainerScriptArchiveModel";
 import {
   addTrainer,
+  canDeleteTrainer,
+  deleteTrainer,
   getTrainerAutofills,
   getTrainerCount,
   getTrainerRecord,
@@ -135,6 +137,7 @@ export function renderTrainerEditor(
   const classFilter = root.querySelector<HTMLSelectElement>('[data-trainer-filter="class"]')!;
   const battleFilter = root.querySelector<HTMLSelectElement>('[data-trainer-filter="battle"]')!;
   const haystacks = new Map<number, string>();
+  let deleteButton: HTMLButtonElement | null = null;
 
   const refreshRow = (trainerId: number) => {
     haystacks.delete(trainerId);
@@ -206,6 +209,7 @@ export function renderTrainerEditor(
       selection.roster = undefined;
     }
     selection.trainerId = trainerId;
+    if (deleteButton) deleteButton.hidden = !canDeleteTrainer(project, trainerId);
     controller.render();
     list.querySelectorAll<HTMLElement>("[data-trainer-row]").forEach((row) => {
       const active = Number(row.dataset.trainerRow) === trainerId;
@@ -247,9 +251,31 @@ export function renderTrainerEditor(
   if (pageActions) {
     pageActions.innerHTML = `
       <button class="btn" type="button" data-trainer-add title="Clone the selected trainer, its party, name slot and dialogue rows">Add trainer</button>
+      <button class="btn -remove" type="button" data-trainer-delete hidden>Delete trainer</button>
       <button class="btn" type="button" data-trainer-team aria-pressed="${selection.testTeamOpen}" title="Your side in Test battle">Test team</button>
     `;
     pageActions.querySelector("[data-trainer-team]")?.addEventListener("click", () => setTestTeamOpen(!selection.testTeamOpen));
+    deleteButton = pageActions.querySelector<HTMLButtonElement>("[data-trainer-delete]");
+    const button = deleteButton;
+    button?.addEventListener("click", async () => {
+      const id = selection.trainerId;
+      if (!canDeleteTrainer(project, id) || !window.confirm(`Delete added trainer #${id} and its party and dialogue?`)) return;
+      button.disabled = true;
+      try {
+        await deleteTrainer(project, id);
+        if (selection.trainerId === id) {
+          selection.trainerId = id - 1;
+          selection.slot = 0;
+          selection.roster = undefined;
+        }
+        onDirty?.();
+        if (pageActions.contains(button) && root.contains(detail)) renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      } finally {
+        button.disabled = false;
+      }
+    });
     pageActions.querySelector("[data-trainer-add]")?.addEventListener("click", () => {
       try {
         const trainer = addTrainer(project, selection.trainerId);

@@ -8,6 +8,8 @@ import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
   addTrainer,
+  canDeleteTrainer,
+  deleteTrainer,
   addTrainerPokemon,
   autofillTrainerPokemonMoves,
   calculateTrainerPokemonNature,
@@ -17,6 +19,7 @@ import {
   importTrainerTeamShowdownText,
   moveTrainerPokemon,
   formatTrainerPokemonShowdownText,
+  getTrainerPokemonAbilityOptions,
   getTrainerRecord,
   importTrainerPokemonShowdownText,
   resolveTrainerPokemonGender,
@@ -507,20 +510,34 @@ describe("trainerModel", () => {
     expect(getTrainerRecord(project, 1).party.map((pok) => pok.level)).toEqual([9]);
   });
 
-  it("imports a form's own name as its species in that form", () => {
+  it("looks up trainer abilities on the chosen form and imports a form's own name", () => {
     const project = makeProject(3);
     const formats = project.formats!;
     project.narcs.personal = makeStore("personal", packRows(formats.personal!, [
       {},
       { ability_1: 1, ability_2: 2, ability_3: 3, gender: 127, form_id: 3, num_forms: 2 },
       { ability_1: 1, ability_2: 2, ability_3: 3, gender: 127 },
-      { ability_1: 1, ability_2: 2, ability_3: 3, gender: 127 },
+      { ability_1: 4, ability_2: 5, ability_3: 6, gender: 127 },
     ]), 4);
     project.texts.banks.pokedex = ["None", "Bulbasaur", "Ivysaur", "Bulbasaur-Alola"];
+    project.texts.banks.abilities!.push("Levitate", "Flash Fire", "Air Lock");
 
-    importTrainerTeamShowdownText(project, 1, "Bulbasaur-Alola\nLevel: 9\n\nIvysaur\nLevel: 9");
+    updateTrainerPokemonField(project, 1, 0, "form_0", "1");
+    const alternate = getTrainerRecord(project, 1).party[0];
+    expect(alternate.abilityName).toBe("Levitate");
+    expect(getTrainerPokemonAbilityOptions(project, alternate).map(({ label }) => label))
+      .toEqual(["Default", "Ability 1: Levitate", "Ability 2: Flash Fire", "Hidden: Air Lock"]);
+    expect(formatTrainerPokemonShowdownText(project, 1, 0)).toContain("Ability: Levitate");
+
+    importTrainerTeamShowdownText(project, 1, "Bulbasaur-Alola\nAbility: Flash Fire\nLevel: 9\n\nIvysaur\nLevel: 9");
     const trpok = decodeRecord(project, "trpok", 1).raw!;
     expect([trpok.species_id_0, trpok.form_0, trpok.species_id_1, trpok.form_1]).toEqual([1, 1, 2, 0]);
+    expect(trpok.ability_0).toBe(2 * 16);
+    expect(getTrainerRecord(project, 1).party[0].abilityName).toBe("Flash Fire");
+    importTrainerPokemonShowdownText(project, 1, 0, "Bulbasaur\nAbility: Air Lock\nForm: 1");
+    expect(getTrainerRecord(project, 1).party[0].abilityName).toBe("Air Lock");
+    expect(() => importTrainerPokemonShowdownText(project, 1, 0, "Bulbasaur\nAbility: Air Lock")).toThrow(/Unknown ability/u);
+    expect(getTrainerRecord(project, 1).party[0].form).toBe(1);
   });
 
   it("adds a trainer by cloning trainer data, party data, names, and BW2 text tables", () => {
@@ -544,6 +561,47 @@ describe("trainerModel", () => {
     expect(readU16(project.narcs.trtext_offsets!.rawFiles[0], 4)).toBe(12);
     expect(readU16(project.narcs.trtext_table!.rawFiles[0], 12)).toBe(2);
     expect(readU16(project.narcs.trtext_table!.rawFiles[0], 14)).toBe(0);
+  });
+
+  it("deletes only the newest added trainer and clears its name, dialogue, and roster data", async () => {
+    const project = makeProject(3);
+    addTrainerTextFixtures(project);
+    project.narcs.trtext_table!.rawFiles[0] = packLineTable([[1, 0], [1, 1]]);
+    project.narcs.trtext_offsets!.rawFiles[0] = packOffsets([0, 0]);
+    project.texts.messageTexts![381].pop();
+    const first = addTrainer(project, 1).id;
+    const last = addTrainer(project, 1).id;
+    await expect(deleteTrainer(project, 1)).rejects.toThrow(/newest added/u);
+    await expect(deleteTrainer(project, first)).rejects.toThrow(/newest added/u);
+
+    const script = new Uint8Array(18);
+    for (const [at, value] of [[0, 4], [4, 0xfd13], [8, 0x85], [10, last], [16, 2]]) writeInt(script, at, 2, value);
+    project.narcs.scripts = makeStore("scripts", [script], 1);
+    await expect(deleteTrainer(project, last)).rejects.toThrow(/script file #0/u);
+    delete project.narcs.scripts;
+
+    setTrainerRosterChoices(project, 1, [{ rosterId: last, weight: 1 }]);
+    await expect(deleteTrainer(project, last)).rejects.toThrow(/Trainer #1 uses this trainer/u);
+    expect(project.narcs.trpok!.fileCount).toBe(4);
+    setTrainerRosterChoices(project, 1, []);
+    setTrainerRosterChoices(project, last, [{ rosterId: first, weight: 1 }]);
+    await deleteTrainer(project, last);
+
+    expect(canDeleteTrainer(project, first)).toBe(true);
+    expect(getTrainerRosterChoices(project, last)).toEqual([]);
+    expect(project.narcs.trdata).toMatchObject({ fileCount: 3, structureDirty: true });
+    expect(project.narcs.trpok).toMatchObject({ fileCount: 3, structureDirty: true });
+    expect(project.narcs.trpok!.dirty.has(last)).toBe(false);
+    expect(project.trpokInfo).toHaveLength(3);
+    expect(project.texts.banks.tr_names).toEqual(["None", "Cheren", "Trainer"]);
+    expect(project.narcs.trtext_offsets!.rawFiles[0]).toEqual(packOffsets([0, 0, 8]));
+    expect(getTrainerTextLines(project, first).find((line) => line.typeId === 0)?.value).toBe("Battle start");
+
+    await deleteTrainer(project, first);
+    expect(canDeleteTrainer(project, 1)).toBe(false);
+    expect(project.narcs.trtext_table!.rawFiles[0]).toEqual(packLineTable([[1, 0], [1, 1]]));
+    expect(project.texts.messageTexts![381]).toHaveLength(2);
+    expect(getTrainerRecord(project, 1).party[0]?.speciesName).toBe("Bulbasaur");
   });
 
   it("calculates Gen V trainer Pokemon natures with the old PID algorithm", () => {

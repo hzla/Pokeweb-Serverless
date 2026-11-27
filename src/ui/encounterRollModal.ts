@@ -1,30 +1,32 @@
 import {
   AUTO_ENCOUNTER_TABLE_KEY,
+  ENCOUNTER_ROLL_PERCENT_FIELDS,
   encounterRollSelectionsForLevel,
   getEncounterRollAreas,
   parseEncounterRollStatics,
   rollEncounterSelections,
   type EncounterRollArea,
+  type EncounterRollPercentages,
   type EncounterRollResult,
   type EncounterRollSelection,
   type EncounterRollStatic,
+  type EncounterRollStrategy,
 } from "../pokeweb/encounterRollModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { trainerPokemonSpriteSlug } from "../pokeweb/trainerModel";
 import { getEvolutionItems } from "../pokeweb/testTeamEvolution";
 import { publicAsset } from "../assetUrl";
+import { installSearchablePicker } from "./searchablePicker";
 
 const ENCOUNTER_ROLL_PLAN_STORAGE_PREFIX = "pokeweb.encounterRoll.plan";
 
 type SavedEncounterRollPlan = {
   level: string;
+  strategy: EncounterRollStrategy;
   selections: EncounterRollSelection[];
   staticsText: string;
-  fishingPercent: string;
-  surfPercent: string;
-  grassDoublesPercent: string;
   obtainedEvolutionItemIds: number[];
-};
+} & Partial<Record<keyof EncounterRollPercentages, string>>;
 
 export type EncounterRollOutput = {
   encounters: EncounterRollResult[];
@@ -57,21 +59,32 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
           </div>
           <div class="encounter-roll-tool">
             <label for="encounter-roll-add-area">Add encounter area</label>
-            <div class="encounter-roll-control-row">
-              <select id="encounter-roll-add-area" class="encounter-roll-select" data-add-area></select>
+            <div class="encounter-roll-control-row encounter-roll-add-controls">
+              <div class="encounter-roll-area-picker">
+                <input id="encounter-roll-add-area" class="encounter-roll-select" type="text" placeholder="Search locations" autocomplete="off" spellcheck="false" data-add-area>
+                <div id="encounter-roll-area-options" class="encounter-roll-area-options" role="listbox" aria-label="Matching encounter areas" hidden></div>
+              </div>
               <select class="encounter-roll-select" data-add-table aria-label="Encounter table"></select>
               <button class="btn -default" type="button" data-add>Add</button>
             </div>
           </div>
           <div class="encounter-roll-tool encounter-roll-table-odds">
-            <label>Automatic table chances</label>
-            <div class="encounter-roll-odds-fields">
-              <label>Fishing <span><input class="encounter-roll-percent" type="number" min="0" max="100" step="1" inputmode="decimal" data-fishing-percent> %</span></label>
-              <label>Surf <span><input class="encounter-roll-percent" type="number" min="0" max="100" step="1" inputmode="decimal" data-surf-percent> %</span></label>
-              <label>Grass Doubles <span><input class="encounter-roll-percent" type="number" min="0" max="100" step="1" inputmode="decimal" data-doubles-percent> %</span></label>
-              <div class="encounter-roll-grass-percent">Regular grass <strong data-grass-percent>100%</strong></div>
-            </div>
-            <div class="encounter-roll-tool-description">Regular grass uses the remaining percentage. Methods unavailable at the entered level are removed and the valid chances are redistributed.</div>
+            <label for="encounter-roll-strategy">Table selection</label>
+            <select id="encounter-roll-strategy" class="encounter-roll-select encounter-roll-strategy">
+              <option value="weighted">Weighted</option>
+              <option value="smart">Smart Rolling</option>
+            </select>
+            <fieldset class="encounter-roll-weighted-odds" data-weighted-odds aria-label="Automatic table chances">
+              <div class="encounter-roll-odds-fields">
+                ${ENCOUNTER_ROLL_PERCENT_FIELDS.map(({ field, label, method }) => `
+                  <label${method === "grass_special" ? ' title="Shaking grass, dust clouds, and flying shadows"' : ""}>
+                    ${label} <span><input class="encounter-roll-percent" type="number" min="0" max="100" step="1" inputmode="decimal" data-table-percent="${field}"> %</span>
+                  </label>
+                `).join("")}
+                <div class="encounter-roll-grass-percent">Regular grass <strong data-grass-percent>100%</strong></div>
+              </div>
+              <div class="encounter-roll-tool-description">Regular grass uses the remaining percentage. Methods unavailable at the entered level are removed and the valid chances are redistributed.</div>
+            </fieldset>
           </div>
           <div class="encounter-roll-tool encounter-roll-evolution-items">
             <label>Obtained Evo Items</label>
@@ -102,21 +115,27 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
     const count = overlay.querySelector<HTMLElement>("[data-count]");
     const status = overlay.querySelector<HTMLElement>("[data-status]");
     const levelInput = overlay.querySelector<HTMLInputElement>(".encounter-roll-level");
-    const areaSelect = overlay.querySelector<HTMLSelectElement>("[data-add-area]");
-    const tableSelect = overlay.querySelector<HTMLSelectElement>("[data-add-table]");
+    const areaSearch = overlay.querySelector<HTMLInputElement>("[data-add-area]")!;
+    const areaOptions = overlay.querySelector<HTMLElement>("#encounter-roll-area-options")!;
+    const tableSelect = overlay.querySelector<HTMLSelectElement>("[data-add-table]")!;
+    const addButton = overlay.querySelector<HTMLButtonElement>("[data-add]")!;
+    const strategySelect = overlay.querySelector<HTMLSelectElement>("#encounter-roll-strategy")!;
+    const weightedOdds = overlay.querySelector<HTMLFieldSetElement>("[data-weighted-odds]")!;
     const staticsInput = overlay.querySelector<HTMLTextAreaElement>("[data-statics]");
-    const fishingInput = overlay.querySelector<HTMLInputElement>("[data-fishing-percent]");
-    const surfInput = overlay.querySelector<HTMLInputElement>("[data-surf-percent]");
-    const doublesInput = overlay.querySelector<HTMLInputElement>("[data-doubles-percent]");
+    const percentInputs = ENCOUNTER_ROLL_PERCENT_FIELDS.map(({ field }) => {
+      const input = overlay.querySelector<HTMLInputElement>(`[data-table-percent="${field}"]`)!;
+      input.value = savedPlan[field] ?? "0";
+      return { field, input };
+    });
     const grassPercent = overlay.querySelector<HTMLElement>("[data-grass-percent]");
     const evolutionItemList = overlay.querySelector<HTMLElement>("[data-evolution-items]");
     const rollButton = overlay.querySelector<HTMLButtonElement>("[data-roll]");
+    let selectedArea: EncounterRollArea | undefined = areas[0];
 
     if (levelInput) levelInput.value = savedPlan.level;
     if (staticsInput) staticsInput.value = savedPlan.staticsText;
-    if (fishingInput) fishingInput.value = savedPlan.fishingPercent;
-    if (surfInput) surfInput.value = savedPlan.surfPercent;
-    if (doublesInput) doublesInput.value = savedPlan.grassDoublesPercent;
+    strategySelect.value = savedPlan.strategy;
+    areaSearch.value = selectedArea?.label ?? "";
     if (evolutionItemList) {
       if (evolutionItems.length === 0) {
         const empty = document.createElement("span");
@@ -161,19 +180,33 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
       status.textContent = message;
       status.classList.toggle("-error", error);
     };
+    const readStrategy = (): EncounterRollStrategy => strategySelect.value === "smart" ? "smart" : "weighted";
+    const automaticTableLabel = () => readStrategy() === "smart" ? "Automatic · Smart Rolling" : "Automatic · weighted by method";
+    const updateStrategy = () => {
+      const smart = readStrategy() === "smart";
+      weightedOdds.hidden = smart;
+      weightedOdds.disabled = smart;
+      overlay.querySelectorAll<HTMLOptionElement>(`option[value="${AUTO_ENCOUNTER_TABLE_KEY}"]`).forEach((entry) => {
+        entry.textContent = automaticTableLabel();
+      });
+    };
     const persistPlan = () => rememberEncounterRollPlan(project, {
+      ...Object.fromEntries(percentInputs.map(({ field, input }) => [field, input.value])),
       level: levelInput?.value ?? "",
+      strategy: readStrategy(),
       selections,
       staticsText: staticsInput?.value ?? "",
-      fishingPercent: fishingInput?.value ?? "0",
-      surfPercent: surfInput?.value ?? "0",
-      grassDoublesPercent: doublesInput?.value ?? "0",
       obtainedEvolutionItemIds: selectedEvolutionItemIds(overlay),
+    });
+    const readTableOptions = (): EncounterRollPercentages & { strategy: EncounterRollStrategy } => ({
+      ...Object.fromEntries(percentInputs.map(({ field, input }) => [field, percentValue(input)])),
+      strategy: readStrategy(),
     });
     const updateGrassPercent = () => {
       if (!grassPercent) return;
-      const remaining = 100 - percentValue(fishingInput) - percentValue(surfInput) - percentValue(doublesInput);
-      grassPercent.textContent = `${remaining}%`;
+      const total = percentInputs.reduce((sum, { input }) => sum + percentValue(input), 0);
+      const remaining = 100 - total;
+      grassPercent.textContent = formatChance(remaining);
       grassPercent.classList.toggle("-error", remaining < 0);
     };
     const syncEvolutionItemCheckAll = () => {
@@ -187,15 +220,18 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
     const updateRollButton = () => {
       if (rollButton) rollButton.disabled = selections.length === 0 && !staticsInput?.value.trim();
     };
-    const selectedArea = (): EncounterRollArea | undefined => areas.find((area) => area.encounterId === Number(areaSelect?.value));
+    const updateAddButton = () => {
+      addButton.disabled = !selectedArea || areaSearch.value !== selectedArea.label;
+    };
     const renderAddTables = () => {
-      if (!tableSelect) return;
-      const area = selectedArea();
       tableSelect.replaceChildren(
-        option(AUTO_ENCOUNTER_TABLE_KEY, "Automatic · weighted by method"),
-        ...(area?.tables ?? []).map((table) => option(table.key, `${table.label} · max Lv. ${table.maxLevel}`)),
+        ...(selectedArea ? [
+          option(AUTO_ENCOUNTER_TABLE_KEY, automaticTableLabel()),
+          ...selectedArea.tables.map((table) => option(table.key, `${table.label} · max Lv. ${table.maxLevel}`)),
+        ] : []),
       );
-      tableSelect.value = AUTO_ENCOUNTER_TABLE_KEY;
+      tableSelect.disabled = !selectedArea;
+      updateAddButton();
     };
     const renderSelections = () => {
       if (!list || !count || !rollButton) return;
@@ -224,7 +260,7 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
         name.textContent = area.label;
         const tableField = document.createElement("select");
         tableField.className = "encounter-roll-select encounter-roll-row-table";
-        tableField.append(option(AUTO_ENCOUNTER_TABLE_KEY, "Automatic · weighted by method"));
+        tableField.append(option(AUTO_ENCOUNTER_TABLE_KEY, automaticTableLabel()));
         area.tables.forEach((candidate) => tableField.append(option(candidate.key, `${candidate.label} · max Lv. ${candidate.maxLevel}`)));
         tableField.value = selection.tableKey;
         tableField.addEventListener("change", () => {
@@ -258,12 +294,33 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
       renderSelections();
     };
 
-    if (areaSelect) {
-      areaSelect.replaceChildren(...areas.map((area) => option(String(area.encounterId), area.label)));
-      areaSelect.addEventListener("change", renderAddTables);
-    }
+    installSearchablePicker(areaSearch, areaOptions, areas, {
+      matches: (area, query) => {
+        if (!query || query === selectedArea?.label.toLocaleLowerCase()) return true;
+        if (/^#?\d+$/u.test(query)) return area.encounterId === Number(query.replace(/^#/u, ""));
+        return area.label.toLocaleLowerCase().includes(query);
+      },
+      select: (area) => {
+        const changed = area !== selectedArea;
+        selectedArea = area;
+        areaSearch.value = area.label;
+        if (changed) renderAddTables();
+        else updateAddButton();
+      },
+      onDismiss: () => {
+        areaSearch.value = selectedArea?.label ?? "";
+        updateAddButton();
+      },
+      emptyMessage: "No matching areas",
+    });
+    areaSearch.addEventListener("focus", () => areaSearch.select());
+    areaSearch.addEventListener("input", updateAddButton);
+    areaSearch.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.isComposing) event.preventDefault();
+    });
     renderAddTables();
     renderSelections();
+    updateStrategy();
     updateGrassPercent();
     syncEvolutionItemCheckAll();
 
@@ -273,7 +330,7 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
     overlay.querySelectorAll<HTMLElement>("[data-close]").forEach((button) => button.addEventListener("click", close));
     overlay.querySelector("[data-populate]")?.addEventListener("click", () => {
       try {
-        selections = encounterRollSelectionsForLevel(areas, Number(levelInput?.value), true);
+        selections = encounterRollSelectionsForLevel(areas, Number(levelInput?.value), true, readTableOptions());
         persistPlan();
         setStatus(`Added ${selections.length} encounter area${selections.length === 1 ? "" : "s"}.`);
         renderSelections();
@@ -288,11 +345,15 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
       overlay.querySelector<HTMLButtonElement>("[data-populate]")?.click();
     });
     levelInput?.addEventListener("input", persistPlan);
+    strategySelect.addEventListener("change", () => {
+      updateStrategy();
+      persistPlan();
+    });
     staticsInput?.addEventListener("input", () => {
       persistPlan();
       updateRollButton();
     });
-    [fishingInput, surfInput, doublesInput].forEach((input) => input?.addEventListener("input", () => {
+    percentInputs.forEach(({ input }) => input.addEventListener("input", () => {
       persistPlan();
       updateGrassPercent();
     }));
@@ -308,9 +369,9 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
       syncEvolutionItemCheckAll();
       persistPlan();
     });
-    overlay.querySelector("[data-add]")?.addEventListener("click", () => {
-      const area = selectedArea();
-      if (!area || !tableSelect?.value) return;
+    addButton.addEventListener("click", () => {
+      const area = selectedArea;
+      if (addButton.disabled || !area || !tableSelect.value) return;
       if (selections.some((selection) => selection.encounterId === area.encounterId)) {
         setStatus("That encounter area is already in the list.", true);
         return;
@@ -328,9 +389,7 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
         const statics = parseEncounterRollStatics(project, staticsInput?.value ?? "");
         const enteredLevel = Number(levelInput?.value);
         const encounters = rollEncounterSelections(project, selections, Math.random, {
-          fishingPercent: percentValue(fishingInput),
-          surfPercent: percentValue(surfInput),
-          grassDoublesPercent: percentValue(doublesInput),
+          ...readTableOptions(),
           maxLevel: Number.isFinite(enteredLevel) && enteredLevel >= 1 ? enteredLevel : undefined,
           obtainedEvolutionItemIds: selectedEvolutionItemIds(overlay),
         });
@@ -357,11 +416,9 @@ export function requestEncounterRoll(project: ProjectState, onRoll: (output: Enc
 function readSavedEncounterRollPlan(project: ProjectState): SavedEncounterRollPlan {
   const fallback: SavedEncounterRollPlan = {
     level: "",
+    strategy: "weighted",
     selections: [],
     staticsText: "",
-    fishingPercent: "0",
-    surfPercent: "0",
-    grassDoublesPercent: "0",
     obtainedEvolutionItemIds: [],
   };
   if (typeof localStorage === "undefined") return fallback;
@@ -370,12 +427,13 @@ function readSavedEncounterRollPlan(project: ProjectState): SavedEncounterRollPl
     if (!value || typeof value !== "object") return fallback;
     const saved = value as Partial<SavedEncounterRollPlan>;
     return {
+      ...Object.fromEntries(ENCOUNTER_ROLL_PERCENT_FIELDS.map(({ field }) => [
+        field, typeof saved[field] === "string" ? saved[field] : "0",
+      ])),
       level: typeof saved.level === "string" ? saved.level : "",
+      strategy: saved.strategy === "smart" ? "smart" : "weighted",
       selections: Array.isArray(saved.selections) ? saved.selections : [],
       staticsText: typeof saved.staticsText === "string" ? saved.staticsText : "",
-      fishingPercent: typeof saved.fishingPercent === "string" ? saved.fishingPercent : "0",
-      surfPercent: typeof saved.surfPercent === "string" ? saved.surfPercent : "0",
-      grassDoublesPercent: typeof saved.grassDoublesPercent === "string" ? saved.grassDoublesPercent : "0",
       obtainedEvolutionItemIds: Array.isArray(saved.obtainedEvolutionItemIds)
         ? saved.obtainedEvolutionItemIds.filter((itemId): itemId is number => Number.isInteger(itemId) && itemId > 0)
         : [],
@@ -412,8 +470,8 @@ function formatChance(value: number): string {
   return `${Number(value.toFixed(2))}%`;
 }
 
-function percentValue(input: HTMLInputElement | null): number {
-  const value = Number(input?.value || 0);
+function percentValue(input: HTMLInputElement): number {
+  const value = Number(input.value);
   return Number.isFinite(value) ? value : 0;
 }
 

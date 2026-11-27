@@ -382,6 +382,22 @@
   grid-column: 1 / -1;
 }
 
+.encounter-roll-strategy {
+  max-width: 210px;
+}
+
+.encounter-roll-weighted-odds {
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.encounter-roll-weighted-odds:not([hidden]) {
+  display: grid;
+  gap: 7px;
+}
+
 .encounter-roll-evolution-items {
   grid-column: 1;
 }
@@ -394,7 +410,7 @@
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(120px, 1fr)) minmax(150px, 1.2fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .encounter-roll-odds-fields > label {
@@ -436,6 +452,9 @@
   color: #cfd0da;
   display: flex;
   font-size: 11px;
+  gap: 5px;
+  grid-column: 4;
+  grid-row: 1;
   justify-content: space-between;
   min-height: 34px;
   padding: 0;
@@ -534,6 +553,42 @@
   display: flex;
   gap: 8px;
   min-width: 0;
+}
+
+.encounter-roll-add-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+}
+
+.encounter-roll-area-picker {
+  min-width: 0;
+  position: relative;
+}
+
+.encounter-roll-area-options {
+  background: #1f2029;
+  border: 1px solid #55586d;
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 35%);
+  font-size: 13px;
+  inset: calc(100% + 4px) 0 auto;
+  max-height: min(230px, 40vh);
+  overflow-y: auto;
+  position: absolute;
+  z-index: 5;
+}
+
+.encounter-roll-area-options > div {
+  padding: 8px 9px;
+}
+
+.encounter-roll-area-options [role="option"] {
+  cursor: pointer;
+}
+
+.encounter-roll-area-options [role="option"]:hover,
+.encounter-roll-area-options [aria-selected="true"] {
+  background: #353046;
 }
 
 .encounter-roll-level,
@@ -754,7 +809,21 @@
   }
 
   .encounter-roll-odds-fields {
-    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .encounter-roll-grass-percent {
+    grid-area: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .encounter-roll-add-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .encounter-roll-area-picker {
+    grid-column: 1 / -1;
   }
 }
 

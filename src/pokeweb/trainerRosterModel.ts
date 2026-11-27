@@ -297,6 +297,31 @@ export function setTrainerRosterRules(project: ProjectState, trainer: number, ru
     JSON.stringify(original), JSON.stringify(entries), { key: `trainer:${trainer}:data:conditional-rosters` });
 }
 
+export function prepareTrainerRosterRemoval(project: ProjectState, trainerId: number): (() => void) | undefined {
+  if (project.session.baseRom !== "BW2") return;
+  const rows = decode(currentTable(project));
+  const rules = decodeRules(currentTable(project, undefined, RULES_PATH));
+  const pools = decodeTrainerPools(currentTable(project, undefined, TRAINER_POOLS_PATH));
+  const ownedPools = [...pools].filter(([, pool]) => pool.owner === trainerId).map(([id]) => id);
+  const removedSources = new Set([trainerId, ...ownedPools.map(trainerPoolSource)]);
+  const authored = [...rows, ...[...rules].map(([id, entries]) => [id, entries.flatMap((rule) => rule.choices)] as const)];
+  for (const [id, choices] of authored) {
+    if (id !== trainerId && choices.some((choice) => removedSources.has(choice.rosterId))) {
+      throw new Error(`Trainer #${id} uses this trainer in its roster choices.`);
+    }
+  }
+  for (const [id, pool] of pools) {
+    if (pool.owner !== trainerId && pool.members.some((member) => "trainerId" in member && member.trainerId === trainerId)) {
+      throw new Error(`${trainerPartyLabel(id)} uses Pokémon from this trainer.`);
+    }
+  }
+  return () => {
+    if (rows.delete(trainerId)) stageTable(project, encode(rows));
+    if (rules.delete(trainerId)) stageTable(project, encodeRules(rules), undefined, RULES_PATH);
+    for (const id of ownedPools) setTrainerPartyPool(project, id, undefined);
+  };
+}
+
 export function getTrainerPartyPools(project: ProjectState): Map<number, TrainerPartyPool> {
   const pools: Map<number, TrainerPartyPool> = decodeTrainerPools(currentTable(project, undefined, TRAINER_POOLS_PATH));
   const moves = readMovePools(project);
@@ -615,7 +640,7 @@ export function materializeTrainerRosters(project: ProjectState, rom: NintendoDS
   if (!rows.size && !rules.size && !pools.size) return;
   const files = (name: "trdata" | "trpok" | keyof typeof POOL_DATA_ARCHIVES, path: string) => {
     const store = project.narcs[name];
-    if (store?.dirty.size) return store.rawFiles;
+    if (store?.dirty.size || store?.structureDirty) return store.rawFiles;
     const id = rom.fileId(path);
     return new NARC(store ? rom.files[id] : getRomFileBytes(project, rom, id)).files;
   };

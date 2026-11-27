@@ -4,7 +4,7 @@ import { inspectCustomMoveFlags } from "../pokeweb/abilityEffectsModel";
 import { customMoveFlagFilter, customMoveFlagId, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
 import {recipeAbilityEffect,ABILITY_PROTECTED_CONDITION_LABELS,ABILITY_DAMAGE_SOURCE_LABELS} from "../pokeweb/abilityRecipeEffects";
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
-import { ITEM_RULE_EFFECTS, ITEM_RULE_WEATHER, ITEM_RULE_STATUS_LABELS, ITEM_RULE_STAT_LABELS, ITEM_RULE_TRIGGERS, ITEM_RULE_TARGETS, ITEM_RULE_TRIGGER_LABELS, validateItemRule, type AbilityConditionSubject, type ItemRuleCondition, type ItemRuleSet, type ItemRuleEffect, type ItemRuleEffectDefinition } from "../pokeweb/itemRules";
+import { ITEM_RULE_EFFECTS, ITEM_RULE_WEATHER, ITEM_RULE_STATUS_LABELS, ITEM_RULE_STAT_LABELS, ITEM_RULE_TRIGGERS, ITEM_RULE_TARGETS, ITEM_RULE_TRIGGER_LABELS, STAT_STAGE_COMPARISONS, validateItemRule, type StatStageComparison, type AbilityConditionSubject, type ItemRuleCondition, type ItemRuleSet, type ItemRuleEffect, type ItemRuleEffectDefinition } from "../pokeweb/itemRules";
 import { configureItemRuleSets } from "../pokeweb/itemEffectsModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { typeNamesForProject } from "../pokeweb/constants";
@@ -46,10 +46,18 @@ function group(node: ItemRuleCondition, types: string[], climate: (label: string
     ${node.kind === "sideEffect" ? `<select data-rule-condition-side aria-label="Battle side">${option("own", "Holder’s side", node.side)}${option("opposing", "Opposing side", node.side)}</select>` : ""}
     <select data-rule-negate aria-label="Condition comparison">${option(0, maxLayers > 1 ? "At least" : "Is active", Number(Boolean(node.negate)))}${option(1, maxLayers > 1 ? "Fewer than" : "Is inactive", Number(Boolean(node.negate)))}</select>
     ${maxLayers > 1 && node.kind === "sideEffect" ? `<select data-rule-condition-layers aria-label="Hazard layers">${Array.from({length: maxLayers}, (_, i) => option(i + 1, i === 0 ? "1 layer" : `${i + 1} layers`, node.layers ?? 1)).join("")}</select>` : ""}` : "";
+  const statStageControls = node.kind === "statStage" ? `
+    <select data-rule-condition-stat aria-label="Stat to check">${ITEM_RULE_STAT_LABELS.map((label, index) => option(index + 1, label, node.stat)).join("")}</select>
+    <select data-rule-comparison aria-label="Stat stage comparison">${STAT_STAGE_COMPARISONS.map((value, index) => option(value,
+      ["Below (<)", "At most (≤)", "Above (>)", "At least (≥)", "Exactly (=)"][index], node.comparison)).join("")}</select>
+    <select data-rule-condition-value aria-label="Stat stage">${Array.from({length:13}, (_, index) => {
+      const stage = index - 6;
+      return option(stage, stage > 0 ? "+" + stage : stage === 0 ? "0 (neutral)" : String(stage), node.stages);
+    }).join("")}</select>` : "";
   return `<div class="item-rule-condition" data-rule-condition data-rule-kind="${node.kind}" data-rule-path="${path}">
-    <select data-rule-condition-kind aria-label="Condition type">${option("hp", "Holder HP", node.kind)}${option("type", ability ? "Pokémon type" : "Holder type", node.kind)}${ability ? option("knowsMove", "Knows move", node.kind) : ""}${option("weather", "Weather", node.kind)}${option("species", "Holder species", node.kind)}${option("status", "Holder status", node.kind)}${option("moveType", "Move type", node.kind)}${option("category", "Move category", node.kind)}${option("fieldEffect", "Field effect", node.kind)}${option("sideEffect", "Side condition", node.kind)}</select>
+    <select data-rule-condition-kind aria-label="Condition type">${option("hp", "Holder HP", node.kind)}${option("type", ability ? "Pokémon type" : "Holder type", node.kind)}${ability ? option("knowsMove", "Knows move", node.kind) + option("statStage", "Holder stat stage", node.kind) : ""}${option("weather", "Weather", node.kind)}${option("species", "Holder species", node.kind)}${option("status", "Holder status", node.kind)}${option("moveType", "Move type", node.kind)}${option("category", "Move category", node.kind)}${option("fieldEffect", "Field effect", node.kind)}${option("sideEffect", "Side condition", node.kind)}</select>
     ${ability && (node.kind === "type" || node.kind === "knowsMove") ? `<select data-rule-subject aria-label="Pokémon to check">${option("holder", "Holder", node.subject ?? "holder")}${option("opponent", "Opponent involved", node.subject ?? "holder")}${option("anyOpponent", scoped ? "Same active opponent" : "Any active opponent", node.subject ?? "holder")}</select>` : ""}
-    ${field ? fieldControls : node.kind === "hp" ? `<select data-rule-comparison aria-label="HP comparison">${[["lt", "Below (<)"], ["lte", "At most (≤)"], ["gt", "Above (>)"], ["gte", "At least (≥)"]].map(([v, label]) => option(v, label, node.comparison)).join("")}</select><label class="item-rule-value"><input data-rule-condition-value aria-label="HP percent" type="number" min="0" max="100" step="1" value="${node.percent}"><span>%</span></label>`
+    ${field ? fieldControls : node.kind === "statStage" ? statStageControls : node.kind === "hp" ? `<select data-rule-comparison aria-label="HP comparison">${[["lt", "Below (<)"], ["lte", "At most (≤)"], ["gt", "Above (>)"], ["gte", "At least (≥)"]].map(([v, label]) => option(v, label, node.comparison)).join("")}</select><label class="item-rule-value"><input data-rule-condition-value aria-label="HP percent" type="number" min="0" max="100" step="1" value="${node.percent}"><span>%</span></label>`
       : `<select data-rule-negate aria-label="Condition comparison">${option(0, node.kind === "knowsMove" ? "Knows" : "Is", Number(Boolean(node.negate)))}${option(1, node.kind === "knowsMove" ? "Does not know" : "Is not", Number(Boolean(node.negate)))}</select>${node.kind === "species" ? `<input data-rule-condition-value aria-label="Species ID" type="number" min="1" max="1023" value="${node.value}">` : node.kind === "knowsMove" ? `<input data-rule-condition-value aria-label="Move name or ID" type="text" list="ability-condition-moves" value="${node.value}">` : `<select data-rule-condition-value aria-label="Condition value">${(node.kind === "type" || node.kind === "moveType" ? types : node.kind === "weather" ? ITEM_RULE_WEATHER : node.kind === "category" ? ["Status", "Physical", "Special"] : ["None", ...ITEM_RULE_STATUS_LABELS.slice(0, 6)]).map((label, id) => option(id, climate(label), node.value)).join("")}</select>`}`}
     <button type="button" class="btn -default" data-rule-action="remove-condition" data-rule-path="${path}" aria-label="Remove condition">×</button>
   </div>`;
@@ -145,6 +153,12 @@ export function readItemRuleForm(container: HTMLElement): ItemRuleSet {
     const text = field.value.trim();
     const moveId = node.dataset.ruleKind === "knowsMove" ? /^(\d+)(?: · .+)?$/u.exec(text)?.[1] : undefined;
     const value = text ? Number(moveId ?? text) : Number.NaN;
+    if (node.dataset.ruleKind === "statStage") return {
+      kind: "statStage",
+      stat: Number(node.querySelector<HTMLSelectElement>("[data-rule-condition-stat]")!.value),
+      comparison: node.querySelector<HTMLSelectElement>("[data-rule-comparison]")!.value as StatStageComparison,
+      stages: value,
+    };
     if (node.dataset.ruleKind === "hp") return { kind: "hp", comparison: node.querySelector<HTMLSelectElement>("[data-rule-comparison]")!.value as "lt", percent: value };
     const negate = node.querySelector<HTMLSelectElement>("[data-rule-negate]")!.value === "1";
     if (node.dataset.ruleKind === "sideEffect") return {
@@ -233,8 +247,9 @@ export function installItemRuleEditor(container: HTMLElement, project: ProjectSt
       } else {
         const path = target.closest<HTMLElement>("[data-rule-condition]")!.dataset.rulePath!, location = parent(rule, path), kind = (target as HTMLSelectElement).value;
         if (kind === "hp") location.node.children[location.index] = { kind, comparison: "lt", percent: 50 };
+        else if (kind === "statStage") location.node.children[location.index] = { kind, stat: 5, comparison: "gte", stages: 2 };
         else if (kind === "sideEffect") location.node.children[location.index] = { kind, value: 4, side: "own", layers: 1 };
-        else location.node.children[location.index] = { kind: kind as Exclude<ItemRuleCondition["kind"], "group" | "hp" | "sideEffect">,
+        else location.node.children[location.index] = { kind: kind as Exclude<ItemRuleCondition["kind"], "group" | "hp" | "sideEffect" | "statStage">,
           value: kind === "fieldEffect" || kind === "species" || kind === "knowsMove" ? 1 : kind === "type" ? 5 : kind === "weather" ? 2 : 0 };
       }
       replace(rule);

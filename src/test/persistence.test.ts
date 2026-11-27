@@ -50,4 +50,10 @@ describe("NARC persistence hydration", () => {
 
     expect(hydrated).toEqual([Uint8Array.of(1), Uint8Array.of(7), Uint8Array.of(8)]);
   });
+
+  it("does not restore deleted tail members from the source ROM", () => {
+    const original = [Uint8Array.of(1), Uint8Array.of(2), Uint8Array.of(3)];
+    const hydrated = hydrateNarcRawFiles([new Uint8Array(), Uint8Array.of(9)], new Set([1]), 2, original, true);
+    expect(hydrated).toEqual([Uint8Array.of(1), Uint8Array.of(9)]);
+  });
 });

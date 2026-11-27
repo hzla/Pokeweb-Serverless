@@ -1389,3 +1389,7 @@
 #trainer-data .td-test-roster {
   max-width: 200px;
 }
+
+#page-actions [data-trainer-delete][hidden] {
+  display: none;
+}

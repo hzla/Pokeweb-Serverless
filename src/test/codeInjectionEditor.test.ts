@@ -597,7 +597,7 @@ describe("code-injection patch categories", () => {
 
     expect(headings(panels[0])).toEqual([
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log", "Item Expansion",
-      "Single-NPC Double Battle Fix", "Tag Battle Stabilization", "Rotation Battle AI", "Added-Form Evolution Support", "Trainer Customization",
+      "Single-NPC Double Battle Fix", "Tag Battle Stabilization", "Rotation Battle AI", "Ability Storage Fix", "Added-Form Evolution Support", "Trainer Customization",
     ]);
     expect(headings(panels[1])).toEqual([
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",

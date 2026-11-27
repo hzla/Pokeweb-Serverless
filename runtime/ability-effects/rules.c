@@ -73,6 +73,25 @@ typedef struct {
 } ConditionContext;
 #ifdef ABILITY_EFFECT_CONDITIONS
 PUBLIC const volatile u32 AbilityPokemonConditionApi[3]={0}; /* slot, ally, active */
+#ifdef ABILITY_STAT_STAGE_CONDITIONS
+PUBLIC const volatile u32 AbilityStatStageRead=0;
+static u32 statStageCondition(void*mon,u32 stat,u32 encoded){
+ /* The engine stores stages as 0 through 12, with 6 neutral. */
+ u32 comparison=encoded>>4,threshold=encoded&15;
+ if(!mon||!stat||stat>7||comparison>4||threshold>12)return 0;
+ u8 min,max;
+ const u8*stage=((const u8*(*)(void*,u32,u8*,u8*))(uintptr_t)AbilityStatStageRead)(mon,stat,&min,&max);
+ if(!stage||*stage>12)return 0;
+ u32 current=*stage;
+ switch(comparison){
+ case 0:return current<threshold;
+ case 1:return current<=threshold;
+ case 2:return current>threshold;
+ case 3:return current>=threshold;
+ default:return current==threshold;
+ }
+}
+#endif
 #define COND_API(i,t) ((t)(uintptr_t)AbilityPokemonConditionApi[i])
 static u8 conditionWeatherReading;
 static u32 conditionOpponents(void*context,u32 from){
@@ -144,6 +163,9 @@ static u32 conditionLeaf(const volatile u8*p,void*context){
    if(pokemonCondition(MON(f,id),p[0],v,negate))return 1;
   return 0;
  }
+#ifdef ABILITY_STAT_STAGE_CONDITIONS
+ else if(p[0]==12)return statStageCondition(mon,p[1],v);
+#endif
 #endif
  if(p[0]>=2&&p[0]<128&&p[1])result=!result;
  return result;

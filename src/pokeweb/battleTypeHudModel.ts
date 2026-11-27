@@ -6,11 +6,12 @@ import reduxManifest from "../assets/codeinjection/battleTypeHudReduxManifest.js
 import { readU32, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
+import { reserveFilePath } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { localizedAssetVariant } from "./translationAssets";
 import { recordGenericChange } from "./actionChangelog";
-import { getRomFileBytes, replaceNarcFile } from "./fileSystemModel";
+import { getRomFileBytes, replaceNarcFile, setRomFileReplacement } from "./fileSystemModel";
 import { battleTypeHudPanelExpansion, transformBattleTypeHudPanel } from "./battleTypeHudResources";
 import { loadActiveRomBytes } from "./persistence";
 import { canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
@@ -158,7 +159,7 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
   const v = project.session.baseVersion;
   if (!isVersion(v) || project.session.baseRom !== (v === "B" || v === "W" ? "BW" : "BW2")) return status;
   const profile = profileFor(v, kind); let rom: NintendoDSRom | undefined;
-  try { if (bytes) rom = new NintendoDSRom(bytes); } catch { return { ...status, message: "Reload the ROM to check Battle HUD compatibility." }; }
+  try { if (bytes) rom = new NintendoDSRom(bytes, { fileData: "view" }); } catch { return { ...status, message: "Reload the ROM to check Battle HUD compatibility." }; }
   if (!profile || (rom?.idCode ?? project.romInfo.idCode) !== profile.rom_code) return status;
   if (rom && rom.data[0x1e] !== profile.revision) return { ...status, message: "Battle HUD requires English US revision 0." };
   if ((v === "B" || v === "W") && (!profileFor("B", kind)?.dsAccepted || !profileFor("W", kind)?.dsAccepted)) {
@@ -180,7 +181,8 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     const moveBuild = knownBuild(rpm, v, "moves");
     const build = kind === "icons" ? iconBuild : moveBuild ?? (iconBuild === "0.2.0" ? iconBuild : undefined);
     if (build) {
-      if (status.installed) return { ...status, message: "Multiple Battle HUD DLLs are present. Remove the duplicate before installing." };
+      if (status.installed) return { ...status, canUninstall: kind === "icons" && status.canUninstall,
+        message: "Multiple Battle HUD DLLs are present. Remove the duplicate before installing." };
       status.installed = true; status.dllPath = entry.path; status.legacyCombined = iconBuild === "0.2.0";
       if (kind === "icons" && iconBuild) {
         status.iconVariant = iconVariantForBuild(v, iconBuild);
@@ -190,7 +192,8 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
       status.updateAvailable = kind === "icons"
         ? !Object.values(variants).some(variant => variant.version === build) && !Object.hasOwn(borderBuilds(v), build)
         : build !== profile.version;
-      status.canUninstall = !status.legacyCombined && canRemoveStagedCodeInjectionDll(project, entry.path);
+      status.canUninstall = !status.legacyCombined && (canRemoveStagedCodeInjectionDll(project, entry.path)
+        || (kind === "moves" && entry.target === "patches" && id !== undefined));
       if (kind === "icons" && v === "W2" && (Object.hasOwn(reduxManifest.games.W2.builds, build) || build.endsWith("-redux")) && status.graphicsProfile !== "redux") {
         return { ...status, canUninstall: false, message: "The installed Redux DLL requires its verified graphics profile. Reload matching artwork before updating or removing it." };
       }
@@ -346,13 +349,14 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
     fileSystem: staged.fileSystem, codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
   return result;
 }
-function uninstallHud(project: ProjectState, kind: Component): void {
+export function uninstallBattleTypeHud(project: ProjectState): void {
+  const kind = "icons";
   const status = getStatus(project, kind);
   if (!status.canUninstall || !status.dllPath) throw new Error("Only a Battle HUD DLL staged in this project can be removed.");
   // Prepare restoration first, so a modified extension cannot leave a partial
   // uninstall. Other members of the battle archive are preserved.
   const restored: { member: number; bytes: Uint8Array }[] = [];
-  const rom = kind === "icons" && project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes) : undefined;
+  const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes) : undefined;
   const profile = profileFor(project.session.baseVersion as Version, kind);
   const fileId = profile && rom?.filenames.idOf(profile.graphicsArchive);
   if (rom && fileId !== undefined) {
@@ -379,9 +383,27 @@ function uninstallHud(project: ProjectState, kind: Component): void {
   recordGenericChange(project, "code_injection", `Staged ${title(kind)} DLL removed.`, title(kind), { key: `code-injection:${kind}` });
 }
 
+export function uninstallMoveEffectiveness(project: ProjectState): void {
+  const status = getStatus(project, "moves");
+  const path = status.dllPath;
+  if (!status.canUninstall || !path) throw new Error("Only a recognized standalone Move Effectiveness Preview DLL can be removed.");
+  const rom = project.originalRomBytes && new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+  const fileId = rom ? rom.filenames.idOf(path) : undefined;
+  if (rom && fileId !== undefined) {
+    // Removing the DLL name from NitroFS while reserving its FAT slot preserves other file IDs.
+    reserveFilePath(rom.filenames, path, fileId);
+    if (canRemoveStagedCodeInjectionDll(project, path)) removeStagedCodeInjectionDll(project, path);
+    setRomFileReplacement(project, fileId, new Uint8Array());
+    (project.fileSystem!.tombstones ??= {})[fileId] = path;
+    if (project.codeInjection?.modules) project.codeInjection.modules = project.codeInjection.modules.filter(
+      module => module.path.toLowerCase() !== path.toLowerCase());
+  } else {
+    removeStagedCodeInjectionDll(project, path);
+  }
+  recordGenericChange(project, "code_injection", "Move Effectiveness Preview removed.", title("moves"), { key: "code-injection:moves" });
+}
+
 export const getBattleTypeHudStatus = (project: ProjectState, bytes = project.originalRomBytes) => getStatus(project, "icons", bytes);
 export const getMoveEffectivenessStatus = (project: ProjectState, bytes = project.originalRomBytes) => getStatus(project, "moves", bytes);
 export const installBattleTypeHud = (project: ProjectState, variant: TypeIconVariant = "letters", borderColor?: string) => installHud(project, "icons", undefined, variant, borderColor);
 export const installMoveEffectiveness = (project: ProjectState, colors?: MoveHighlightColors) => installHud(project, "moves", colors);
-export const uninstallBattleTypeHud = (project: ProjectState) => uninstallHud(project, "icons");
-export const uninstallMoveEffectiveness = (project: ProjectState) => uninstallHud(project, "moves");

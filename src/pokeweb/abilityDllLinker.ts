@@ -150,6 +150,7 @@ type AbilityHookOptions = {
     statusExtensions: boolean;
     scoped: boolean;
     usesKnownMoves: boolean;
+    usesStatStageConditions: boolean;
     usesConditionSubjects: boolean;
 };
 
@@ -204,7 +205,7 @@ function linkCopiedHook(rpm: RpmModule, context: AbilityRuntimeContext, {
 export function linkAbilityRuntimeHooks(rpm: RpmModule, context: AbilityRuntimeContext, entries: ReadonlyMap<number, AbilityRuleSet>, {
     previewHook, popupGroups, library, priority, recipes, allowItemMoveParamHook, battleMessages, zenMode,
     convertType, statSource, hasFieldCondition, hasSideCondition, environment, strikes, protectionBypass,
-    weatherMoves, statusExtensions, scoped, usesKnownMoves, usesConditionSubjects,
+    weatherMoves, statusExtensions, scoped, usesKnownMoves, usesConditionSubjects, usesStatStageConditions,
 }: AbilityHookOptions): void {
     const named = (name: string) => requireAbilitySymbol(rpm, name);
     const writeNativeService = (name: string, pointerAddress: number) => {
@@ -438,6 +439,16 @@ export function linkAbilityRuntimeHooks(rpm: RpmModule, context: AbilityRuntimeC
             writeNativeService("IsAllyMonID", conditionsApi + 4);
             writeNativeService("BtlServerFlow_IsMonInBattle", conditionsApi + 8);
         }
+    }
+    if (usesStatStageConditions) {
+        const name = "BattleMon_GetStatStagePtr";
+        const getter = context.resolver.resolve(name);
+        const validator = context.resolver.resolve("IsStatChangeValid");
+        const call = context.signatures.IsStatChangeValid.calls.find(call => call.target === name);
+        if (!call || battleBranchTarget(validator.code, call.offset, validator.address) !== getter.address)
+            throw Error("Unrecognized native stat stage reader.");
+        assertUnhooked(context, name, getter.address, getter.code.length);
+        writeU32(rpm.code, named("AbilityStatStageRead").address, getter.address | 1);
     }
 }
 

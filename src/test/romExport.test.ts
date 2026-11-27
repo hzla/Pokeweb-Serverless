@@ -1,4 +1,5 @@
 import { deepStrictEqual } from "node:assert";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { compressCode, decompressCode, isCodeCompressed } from "../nds/codeCompression";
@@ -10,16 +11,49 @@ import { createExportDebugReport } from "../pokeweb/exportDebugReport";
 import { addRomFile, importArm9Bytes } from "../pokeweb/fileSystemModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
+import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import { compactRomBytes } from "../pokeweb/persistence";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import { createNarcStore } from "../pokeweb/projectStore";
 import { addMap3dBuilding, deleteMap3dBuilding, extractGameFreakContainer, packGameFreakContainer, parseChunkBuildings, updateMap3dBuilding, type Map3dSceneData } from "../pokeweb/map3dModel";
 import { TYPE_CHART_FAIRY_TYPE_COUNT, TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore } from "../pokeweb/typeChartModel";
+import { addTrainer, canDeleteTrainer, deleteTrainer, getTrainerRecord } from "../pokeweb/trainerModel";
+import { romFixtureExists } from "./romFixtures";
 import { makeMatrixProject } from "./fixtures/matrixProject";
 import { makeTwlRom, verifyAllDigests } from "./fixtures/dsiRom";
 import { applyMatrixCellEdit, createMatrix, duplicateMatrix, getMatrixSnapshot, linkHeaderToMatrix, resizeMatrix } from "../pokeweb/matrixModel";
 
 describe("ROM export", () => {
+  for (const file of ["cleanblack2.nds", "cleanwhite.nds"]) {
+    const source = new URL(`../../../${file}`, import.meta.url);
+    it.skipIf(!romFixtureExists(source))(`keeps added trainers removable after reimporting ${file}`, async () => {
+      const load = (bytes: Uint8Array) => loadProjectFromRomBytes(bytes, file, {
+        selectedNarcs: ["trdata", "trpok", "trtext_table", "trtext_offsets", "message_texts", "overworlds", "headers", "scripts"],
+      });
+      const project = await load(readFileSync(source));
+      const count = project.narcs.trdata!.fileCount;
+      const originalDialogue = getTrainerRecord(project, 1).texts;
+      const originalRecords = project.narcs.trdata!.rawFiles.slice();
+      const first = addTrainer(project, 1).id;
+      const last = addTrainer(project, 1).id;
+
+      const reopened = await load(await exportModifiedRom(project, { forDsi: false }));
+      expect(canDeleteTrainer(reopened, last)).toBe(true);
+      expect(canDeleteTrainer(reopened, first)).toBe(false);
+      await deleteTrainer(reopened, last);
+      const exportedAgain = await load(await exportModifiedRom(reopened, { forDsi: false }));
+      expect(exportedAgain.narcs.trdata!.fileCount).toBe(count + 1);
+      expect(exportedAgain.narcs.trpok!.fileCount).toBe(count + 1);
+      expect(canDeleteTrainer(exportedAgain, first)).toBe(true);
+      await deleteTrainer(exportedAgain, first);
+      expect(canDeleteTrainer(exportedAgain, count - 1)).toBe(false);
+      expect(exportedAgain.texts.banks.tr_names).toHaveLength(count);
+      expect(getTrainerRecord(exportedAgain, 1).texts).toEqual(originalDialogue);
+      expect(exportedAgain.narcs.trdata!.rawFiles).toHaveLength(originalRecords.length);
+      expect(exportedAgain.narcs.trdata!.rawFiles.every((row, id) => Buffer.compare(row, originalRecords[id]) === 0)).toBe(true);
+    });
+  }
+
   it("repairs a compressed VRAM battle overlay on export and preserves it on re-export", async () => {
     const original = new NintendoDSRom(makeTwlRom("IREO"));
     const image = new Uint8Array(0x800).fill(0x5a), encoded = compressCode(image), table = new Uint8Array(32);

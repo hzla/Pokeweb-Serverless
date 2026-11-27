@@ -6,6 +6,7 @@ import scopedBindings from "../../assets/data/abilityScopedBindings.json";
 import recipeBindings from "../../assets/data/abilityRecipeBindings.json";
 import abilityBindings from "../../assets/data/abilityBindings.json";
 import clientBindings from "../../assets/data/abilityClientBindings.json";
+import { BATTLE_RUNTIME_SIGNATURES } from "../../pokeweb/battleRuntimeBindings";
 import { hydrateAbilityEffectsSource } from "../../pokeweb/abilityEffectsModel";
 import profiles from "../../assets/data/itemEffectProfiles.json";
 import native from "../../assets/data/itemNativeBindings.json";
@@ -127,7 +128,16 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
     offsets.set("AbilityReadFieldEffect", cursor);
     writeU32(data, offsets.get("IsFieldEffectActive")! + 12, base + cursor + 1);
     data.set(getter, cursor);
-    cursor += getter.length;
+    cursor = (cursor + getter.length + 3) & ~3;
+    const stageGetter = BATTLE_RUNTIME_SIGNATURES.BattleMon_GetStatStagePtr;
+    const stageOffset = cursor;
+    data.set(Uint8Array.from(stageGetter.hex.match(/../gu)!, byte => Number.parseInt(byte, 16)), stageOffset);
+    offsets.set("BattleMon_GetStatStagePtr", stageOffset);
+    const stageCall = offsets.get("IsStatChangeValid")! + 12;
+    const stageDelta = stageOffset - (stageCall + 4);
+    writeU16(data, stageCall, 0xf000 | (stageDelta >> 12) & 0x7ff);
+    writeU16(data, stageCall + 2, 0xf800 | (stageDelta >> 1) & 0x7ff);
+    cursor += stageGetter.hex.length / 2;
   }
   const overlay = data.slice(0, cursor);
   const items = new NARC(); items.files = Array.from({ length: 639 }, () => new Uint8Array(36));

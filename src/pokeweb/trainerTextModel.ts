@@ -144,6 +144,33 @@ export function addTrainerTextFromTemplate(project: ProjectState, trainerId: num
   });
 }
 
+/** Prepare a tail removal so no surviving trainer's dialogue index moves. */
+export function prepareTrainerTextRemoval(project: ProjectState, trainerId: number): (() => void) | undefined {
+  if (project.session.baseRom !== "BW2") return;
+  const stores = resolveTrainerTextStores(project);
+  if (!stores) return;
+  const { rows, offsets } = parsedTrainerTextTables(project, stores);
+  const start = rows.findIndex((row) => row.trainerId === trainerId);
+  if (offsets.length <= trainerId && start < 0) return;
+  if (offsets.length !== trainerId + 1 || (start >= 0 && rows.slice(start).some((row) => row.trainerId !== trainerId))) {
+    throw new Error("This trainer's dialogue is not at the end of the dialogue table.");
+  }
+  const bank = getTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
+  if (start >= 0 && bank.length !== rows.length) throw new Error("The trainer dialogue bank and table have different lengths.");
+  const offsetsWithoutTrainer = offsets.slice(0, trainerId);
+  return () => {
+    if (start < 0) {
+      commitRawTrainerTextTables(project, stores, rows, offsetsWithoutTrainer);
+      return;
+    }
+    const end = rows.length * 4;
+    const remainingOffsets = offsetsWithoutTrainer.map((offset) => offset <= end ? Math.min(offset, start * 4) : offset);
+    bank.length = start;
+    commitRawTrainerTextTables(project, stores, rows.slice(0, start), remainingOffsets);
+    commitTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
+  };
+}
+
 function getTrainerTextContext(project: ProjectState, trainerId: number):
   | {
       stores: TrainerTextStores;

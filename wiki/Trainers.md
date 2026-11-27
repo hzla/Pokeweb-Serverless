@@ -17,6 +17,7 @@ The Trainer editor edits trainer metadata, AI flags, battle type, rewards, text,
 | --- | --- |
 | Search | Filters trainers. |
 | Add Trainer | Clones the selected trainer, party, name slot, and dialogue rows. |
+| Delete Trainer | Removes the newest added trainer. Exports retain this eligibility on reimport. Remove any NPC, script, or roster references first. |
 | Natures patch panel | Applies or reports the trainer-nature ARM9 patch for BW2. |
 | Test Team | Paste a Showdown import to use when launching a trainer test battle. |
 | Test | Builds/downloads a test-battle state for the selected trainer. |

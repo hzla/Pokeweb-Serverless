@@ -62,6 +62,7 @@ import {
   uninstallTagBattleStabilization,
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getRotationBattleAiStatus, stageRotationBattleAi, uninstallRotationBattleAi } from "../pokeweb/rotationBattleAiModel";
+import { applyAbilityStorageFix, getAbilityStorageFixStatus } from "../pokeweb/abilityStorageFixModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { CGEAR_QUICK_ACTIONS_BW1_VERSION } from "../pokeweb/cgearQuickActionsBw1Model";
@@ -320,6 +321,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   }).join("");
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const rotationBattleAi = getRotationBattleAiStatus(project);
+  const abilityStorageFix = getAbilityStorageFixStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
   const quickActionsStatus = getCGearQuickActionsStatus(project);
@@ -413,7 +415,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <button class="btn -default" type="button" id="reset-move-highlight-colors">Reset colors</button>` : ""}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-${card.id}-btn" type="button" ${card.status.supported && card.status.compatible ? "" : "disabled"}>${card.status.legacyCombined ? "Replace combined" : card.status.updateAvailable ? "Update" : card.status.installed ? "Reinstall" : "Install"}</button>
-            <button class="btn -default" id="uninstall-${card.id}-btn" type="button" ${card.status.canUninstall ? "" : "disabled"} title="Only this project's staged standalone DLL can be removed.">Uninstall</button>
+            <button class="btn -default" id="uninstall-${card.id}-btn" type="button" ${card.status.canUninstall ? "" : "disabled"} title="${card.id === "move-effectiveness" ? "Remove the standalone preview from the next ROM export." : "Only this project's staged standalone DLL can be removed."}">Uninstall</button>
             <div class="code-injection-note" id="${card.id}-note" aria-live="polite"></div>
           </div>
           ${card.id === "battle-hud" ? `<div class="code-injection-credits" aria-label="Type Icons credits">
@@ -686,6 +688,18 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${rotationBattleAi.compatible && !rotationBattleAi.installed ? "" : "disabled"}>Install Rotation Battle AI</button>
             ${rotationBattleAi.canUninstall ? '<button class="btn -default" id="uninstall-rotation-battle-ai-btn" type="button">Remove staged patch</button>' : ""}
             <div class="code-injection-note" id="rotation-battle-ai-note" role="status">${escapeHtml(rotationBattleAi.message)}</div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(abilityStorageFix.state !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div><h2>Ability Storage Fix</h2><p>Keeps revealed abilities tied to the Pokémon that showed them.</p></div>
+            ${renderInlineStatus({ unsupported: "Unsupported", unavailable: "Unavailable", ready: "Ready", installed: "Installed" }[abilityStorageFix.state], { className: "code-injection-status" })}
+          </div>
+          ${renderSupportedRoms(US_GEN5_REV0)}
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="apply-ability-storage-fix-btn" type="button"
+              ${abilityStorageFix.state === "ready" ? "" : "disabled"}>Apply Ability Storage Fix</button>
+            <div class="code-injection-note" id="ability-storage-fix-note" role="status">${escapeHtml(abilityStorageFix.message ?? "")}</div>
           </div>
         </section>
 
@@ -1726,6 +1740,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   romPatchButton("apply-bw2-ap-fix-btn", "bw2-ap-fix-note", undefined,
     () => setBw2ApFix(project, bw2ApFix !== "enabled"));
   romPatchButton("apply-challenge-stats-btn", "challenge-stats-note", undefined, () => applyChallengeModeStatsFix(project));
+  romPatchButton("apply-ability-storage-fix-btn", "ability-storage-fix-note", undefined, () => applyAbilityStorageFix(project));
   romPatchButton("apply-early-challenge-btn", "early-challenge-note", undefined, () => applyEarlyChallengeMode(project));
   romPatchButton("apply-early-national-dex-btn", "early-national-dex-note", undefined, () => applyEarlyNationalDex(project));
   romPatchButton("add-fairy-type-btn", "fairy-type-note", "Apply this ROM patch to add Fairy Type Support?",
@@ -2573,6 +2588,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             const colors = Object.fromEntries([...root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]")]
               .map(input => [input.dataset.moveHighlightColor!, input.value])) as MoveHighlightColors;
             await install(candidate => installMoveEffectiveness(candidate, colors));
+          } else if (id === "move-effectiveness" && verb === "uninstall") {
+            await withProjectMutationLock(project, () => uninstallMoveEffectiveness(project));
           } else if (id === "battle-hud" && verb === "install") {
             await install(candidate => installBattleTypeHud(candidate, typeIconSettings.variant, typeIconSettings.variant === "solid" ? undefined : typeIconSettings.borderColor));
             pendingTypeIcons.delete(project);

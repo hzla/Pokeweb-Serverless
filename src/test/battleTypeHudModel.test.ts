@@ -215,6 +215,34 @@ describe("Battle HUD bundled installer", () => {
     expect(getBattleTypeHudStatus(p).installed).toBe(true);
     expect(getMoveEffectivenessStatus(p).installed).toBe(false);
   });
+  it.each(["B2", "W2"] as const)("removes the exported %s preview and preserves Type Icons and its graphics", async v => {
+    const p = project(v); assets();
+    await installMoveEffectiveness(p);
+    await installBattleTypeHud(p);
+    const exported = new NintendoDSRom(await exportModifiedRom(p));
+    const reopened = project(v, exported.data);
+    const previewPath = `patches/MoveEffectiveness${v}.dll`;
+    const iconsPath = `patches/TypeIcons${v}.dll`;
+    const previewId = exported.fileId(previewPath);
+    const iconsId = exported.fileId(iconsPath);
+    expect(getMoveEffectivenessStatus(reopened)).toMatchObject({ installed: true, canUninstall: true });
+
+    uninstallMoveEffectiveness(reopened);
+    expect(getMoveEffectivenessStatus(reopened)).toMatchObject({ installed: false, compatible: true });
+    const stripped = new NintendoDSRom(await exportModifiedRom(reopened));
+    expect(stripped.filenames.idOf(previewPath)).toBeUndefined();
+    expect(stripped.files[previewId]).toHaveLength(0);
+    expect(stripped.filenames.idOf(iconsPath)).toBe(iconsId);
+    deepStrictEqual(stripped.files[iconsId], exported.files[iconsId]);
+    deepStrictEqual(stripped.getFileByName("a/0/1/1"), exported.getFileByName("a/0/1/1"));
+
+    const reimported = project(v, stripped.data);
+    expect(getBattleTypeHudStatus(reimported).installed).toBe(true);
+    expect(getMoveEffectivenessStatus(reimported)).toMatchObject({ installed: false, pmcInstalled: true });
+    await installMoveEffectiveness(reimported);
+    const reinstalled = new NintendoDSRom(await exportModifiedRom(reimported));
+    expect(getMoveEffectivenessStatus(project(v, reinstalled.data)).installed).toBe(true);
+  });
   it("keeps custom move hooks and type-chart changes independent from icons", async () => {
     const p = project("W2"); assets();
     const rom = new NintendoDSRom(p.originalRomBytes!); const ov = rom.loadArm9Overlays([167]).get(167)!;
@@ -229,7 +257,7 @@ describe("Battle HUD bundled installer", () => {
     const old = new Uint8Array(readFileSync(new URL("./fixtures/battle-type-hud/BattleTypeHudW2-0.2.0.dll", import.meta.url)));
     stageCodeInjectionDll(p, "MyCombined.dll", old);
     expect(getBattleTypeHudStatus(p).legacyCombined).toBe(true);
-    expect(getMoveEffectivenessStatus(p).legacyCombined).toBe(true);
+    expect(getMoveEffectivenessStatus(p)).toMatchObject({ legacyCombined: true, canUninstall: false });
     const selected = kind === "icons" ? installBattleTypeHud : installMoveEffectiveness;
     const companion = kind === "icons" ? installMoveEffectiveness : installBattleTypeHud;
     await selected(p);
@@ -288,7 +316,7 @@ describe("Battle HUD bundled installer", () => {
     else if (mutation === "color high bit") rpm.code[manifest.moveGames.W2.builds["0.4.7"].colorOffset + 1] |= 0x80;
     else rpm.bssSize = 0;
     stageCodeInjectionDll(p, "CustomPreview.dll", writeRpm(rpm, { ident: "DLXF" }));
-    expect(getMoveEffectivenessStatus(p).compatible).toBe(false);
+    expect(getMoveEffectivenessStatus(p)).toMatchObject({ compatible: false, canUninstall: false });
   });
   it("updates the previous standalone move module without changing icons", async () => {
     const p = project("W2"); assets(); await installBattleTypeHud(p);
@@ -412,11 +440,15 @@ describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { time
     const exported = new NintendoDSRom(await exportModifiedRom(p)), path = `patches/MoveEffectiveness${v}.dll`;
     const configured = exported.getFileByName(path), reopened = project(v, exported.data);
     deepStrictEqual(new NARC(exported.getFileByName("a/0/1/1")).files, new NARC(original.getFileByName("a/0/1/1")).files);
-    expect(getMoveEffectivenessStatus(reopened)).toMatchObject({ installed: true, compatible: true, colors, canUninstall: false });
+    expect(getMoveEffectivenessStatus(reopened)).toMatchObject({ installed: true, compatible: true, colors, canUninstall: true });
     await installMoveEffectiveness(reopened);
     deepStrictEqual(reopened.fileSystem?.replacements[exported.fileId(path)], configured);
     expect(reopened.fileSystem?.additions?.[path]).toBeUndefined();
     expect(getMoveEffectivenessStatus(reopened).colors).toEqual(colors);
+    uninstallMoveEffectiveness(reopened);
+    const stripped = new NintendoDSRom(await exportModifiedRom(reopened));
+    expect(stripped.filenames.idOf(path)).toBeUndefined();
+    expect(getMoveEffectivenessStatus(project(v, stripped.data))).toMatchObject({ installed: false, pmcInstalled: true });
     uninstallMoveEffectiveness(p);
     expect(getMoveEffectivenessStatus(p)).toMatchObject({ installed: false, pmcInstalled: true });
   });

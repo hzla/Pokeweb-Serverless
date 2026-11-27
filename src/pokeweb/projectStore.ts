@@ -50,6 +50,7 @@ export type NarcStore = {
   filenames?: Folder;
   records: Map<number, NarcRecord>;
   dirty: Set<number>;
+  structureDirty?: boolean;
   revision?: number;
   parseError?: string;
 };

@@ -104,7 +104,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const fileReplacements = new Map<number, Uint8Array>();
 
   for (const store of Object.values(project.narcs)) {
-    if (!store || store.fileId < 0 || store.dirty.size === 0) continue;
+    if (!store || store.fileId < 0 || (!store.structureDirty && store.dirty.size === 0)) continue;
     if (isRomFsTypeChartStore(store)) {
       fileReplacements.set(store.fileId, store.rawFiles[0] ?? new Uint8Array());
       continue;

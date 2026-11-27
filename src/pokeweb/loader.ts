@@ -7,6 +7,7 @@ import { loadTrainerClassBattleMusic } from "./trainerClassBattleMusic";
 import { hydrateTrainerCustomizationSources } from "./trainerCustomizationModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateTrainerLevelCapsSources } from "./trainerLevelCapsModel";
+import { hydrateAddedTrainerSource } from "./trainerAppendMetadata";
 import { hydrateNaturePalettes } from "./naturePaletteModel";
 import { hydrateNaturePaletteRuntime } from "./naturePaletteRuntime";
 import { hydrateItemEffectsSource } from "./itemEffectsModel";
@@ -178,6 +179,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
 
     await reportLoadProgress(onProgress, "Indexing trainer metadata");
     indexTrpokInfo(project);
+    hydrateAddedTrainerSource(project, rom);
 
     await reportLoadProgress(onProgress, "Parsing Gen 4 headers");
     project.headers = parseHeaders(project);
@@ -210,6 +212,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
 
   await reportLoadProgress(onProgress, "Indexing trainer metadata");
   indexTrpokInfo(project);
+  hydrateAddedTrainerSource(project, rom);
 
   await reportLoadProgress(onProgress, "Parsing headers");
   project.headers = parseHeaders(project);

@@ -512,7 +512,7 @@
 }
 
 .following-zone-options [role="option"],
-.following-zone-empty {
+.following-zone-options [data-picker-empty] {
   padding: 9px 10px;
 }
 

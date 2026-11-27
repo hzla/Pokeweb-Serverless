@@ -22,6 +22,11 @@ species, status and moves. Templates and their editable controls are defined in
 `src/pokeweb/abilityLibrary.ts`, `abilityNativeRuntime.ts` and `abilityRules.ts`.
 **Activation conditions** apply to every effect. Each card’s **Effect
 conditions** adds a separate AND/OR group evaluated when that effect can run.
+**Holder stat stage** compares one of the holder’s seven current battle stages
+against a signed threshold from −6 to +6. For example, choose Speed, At least,
+and +2. Use it in either condition group and combine it with other predicates
+using AND/OR. The check runs when the effect would activate and reads the
+engine’s existing stage value.
 **Pokémon type** and **Knows move** can check the holder, the opponent involved
 in the event, or any active opponent. An event without an identified opponent
 cannot satisfy an **Opponent involved** check. A **Same active opponent** group
@@ -299,23 +304,25 @@ Aura entry notices use the configured type's display name, including Fairy and
 renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`
-(the default builds the `--effect-conditions-only` bundle,
-`src/assets/data/abilityRuleRuntimeEffectConditions.json`).
+(the default builds the `--stat-stage-conditions-only` bundle,
+`src/assets/data/abilityRuleRuntimeStatStageConditions.json`).
 The original templates remain available for strict verification of older exports;
 the default build updates only the current bundle, including its 4-, 8- and
-16-slot work variants. `--zen-mode-messages-only`, `--form-conversion-only`, `--status-extensions-only`, `--weather-moves-only`,
+16-slot work variants. `--effect-conditions-only`, `--zen-mode-messages-only`, `--form-conversion-only`, `--status-extensions-only`, `--weather-moves-only`,
 `--protect-only`, `--native-flags-only`, `--compact-only`, `--stat-source-only`,
 `--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Consolidated
 execution records use shared immutable data. The
 `PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
-execution format and selected work capacity. Versions 1–17 remain readable through
+execution format and selected work capacity. Versions 1–19 remain readable through
 their retained bundles. **Update Ability Runtime** rebuilds them from their saved
 editor recipes.
 New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.
 `python3 runtime/ability-effects/test_compact.py --current` checks the consolidated
 ARM operations and each work variant with isolated native-service doubles.
+`python3 runtime/ability-effects/test_compact.py --stat-stage` exercises the holder
+stat-stage comparisons in both groups against the native getter.
 `test_conditions.c` checks the compiled evaluator's truth tables and skipped
 queries with a host C compiler. `python3 runtime/ability-effects/test_move_classes.py`
 checks the compiled classification lookup, stock defaults, clears and expanded IDs.
